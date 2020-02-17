@@ -28,7 +28,7 @@ void expand_rules(SYMBOL *rule, FILE *out);
 int validUTF(int c);
 int notMarker(int c);
 void expand_blocks(SYMBOL *rule_head, FILE *out);
-void print_UTF_value(int v);
+void print_UTF_value(int v, FILE *out);
 /*
  * You may modify this file and/or move the functions contained here
  * to other source files (except for main.c) as you wish.
@@ -106,7 +106,7 @@ void expand_blocks(SYMBOL *rule_head, FILE *out){
             SYMBOL *ptr2 = ptr;
             do{
                 //print the symbol at ptr2
-                print_UTF_value(ptr2->value);
+                print_UTF_value(ptr2->value, out);
                 ptr2 = ptr ->next;
             }while(ptr2 != ptr);
 
@@ -117,8 +117,78 @@ void expand_blocks(SYMBOL *rule_head, FILE *out){
     }
 }
 
-void print_UTF_value(int v){
+void print_UTF_value(int v, FILE *out){
+    if(v >= 0 && v <= 0x7f){
+        //1 Byte
+        fputc(v, out);
+    }
+    else if(v > 0x7f && v <= 0x7ff){
+        //2 Byte
+        int byte2;
+        int byte1;
 
+        byte2 = v & 0x3f;
+        byte2 =  byte2 | 0x80;
+
+        v = v >> 6;
+
+        byte1 = v | 0xc0;
+
+        fputc(byte1, out);
+        fputc(byte2, out);
+    }
+    else if(v >0x7ff && v <= 0xffff){
+        //3 Byte
+        int byte3;
+        int byte2;
+        int byte1;
+
+        byte3 = v & 0x3f;
+        byte3 = byte3 | 0x80;
+
+        v = v >> 6;
+
+        byte2 = v & 0x3f;
+        byte2 = byte2 | 0x80;
+
+        v = v >> 6;
+
+        byte1 = v | 0xe0;
+
+        fputc(byte1, out);
+        fputc(byte2, out);
+        fputc(byte3, out);
+
+    }
+    else if(v > 0xffff && v <= 0x1ffff){
+        //4 Byte
+        int byte4;
+        int byte3;
+        int byte2;
+        int byte1;
+
+        byte4 = v & 0x3f;
+        byte4 = byte4 | 0x80;
+
+        v = v >> 6;
+
+        byte3 = v & 0x3f;
+        byte3 = byte3 | 0x80;
+
+        v = v >> 6;
+
+        byte2 = v & 0x3f;
+        byte2 = byte2 | 0x80;
+
+        v = v >> 6;
+
+        byte1 = v | 0xf0;
+
+        fputc(byte1, out);
+        fputc(byte2, out);
+        fputc(byte3, out);
+        fputc(byte4, out);
+    }
 }
 /**
  * Main decompression function.
