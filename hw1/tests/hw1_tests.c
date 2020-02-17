@@ -2,7 +2,7 @@
 #include <criterion/logging.h>
 #include "const.h"
 
-Test(basecode_tests_suite, validargs_help_test) {
+/*Test(basecode_tests_suite, validargs_help_test) {
     int argc = 2;
     char *argv[] = {"bin/sequitur", "-h", NULL};
     int ret = validargs(argc, argv);
@@ -33,6 +33,7 @@ Test(basecode_tests_suite, validargs_compress_test) {
 Test(basecode_tests_suite, validargs_error_test) {
     int argc = 4;
     char *argv[] = {"bin/sequitur", "-d", "-b", "10", NULL};
+    //char *argv[] = {"bin/sequitur","-c", NULL};
     int ret = validargs(argc, argv);
     int exp_ret = -1;
     cr_assert_eq(ret, exp_ret, "Invalid return for valid args.  Got: %d | Expected: %d",
@@ -51,4 +52,17 @@ Test(basecode_tests_suite, help_system_test) {
     cr_assert_eq(return_code, EXIT_SUCCESS,
                  "Program exited with %d instead of EXIT_SUCCESS",
 		 return_code);
+}*/
+
+Test(basecode_tests_suite, decompress) {
+
+    /*FILE *in = fopen("rsrc/sheet.txt.seq", "r");
+    FILE *out = fopen("rsrc/sheetOutput.txt", "w+");*/
+
+    //decompress(in, out);
+
+    FILE *in = fopen("rsrc/twelve_days.txt.seq", "r");
+    FILE *out = fopen("rsrc/sheetOutput.txt", "w+");
+
+    decompress(in, out);
 }

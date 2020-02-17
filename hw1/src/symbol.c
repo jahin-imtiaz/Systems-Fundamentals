@@ -1,6 +1,7 @@
 #include "const.h"
 #include "sequitur.h"
 
+SYMBOL *recycled_symbols;
 /*
  * Symbol management.
  *
@@ -19,6 +20,8 @@ int next_nonterminal_value = FIRST_NONTERMINAL;
  * to FIRST_NONTERMINAL;
  */
 void init_symbols(void) {
+    num_symbols = 0;
+    next_nonterminal_value = FIRST_NONTERMINAL;
     // To be implemented.
 }
 
@@ -47,6 +50,61 @@ void init_symbols(void) {
  */
 SYMBOL *new_symbol(int value, SYMBOL *rule) {
     // To be implemented.
+    if(num_symbols == MAX_SYMBOLS && recycled_symbols == NULL){
+
+    }
+    else if(recycled_symbols != NULL){
+        recycled_symbols->value = value;
+        recycled_symbols->refcnt= 0;
+        recycled_symbols->next =NULL;
+        recycled_symbols->prev =NULL;
+        recycled_symbols->nextr=NULL;
+        recycled_symbols->prevr=NULL;
+        if(IS_TERMINAL(recycled_symbols)){
+            if(rule == NULL){
+                recycled_symbols->rule = rule;
+            }
+            else{
+                return NULL;
+            }
+        }
+        else if(IS_NONTERMINAL(recycled_symbols)){
+            recycled_symbols->rule = rule;
+            if(rule != NULL){
+                rule->refcnt = (rule->refcnt)+1;
+            }
+
+        }
+        SYMBOL *ptr = recycled_symbols;
+        recycled_symbols = recycled_symbols->next;
+        return ptr;
+    }
+    else{
+        SYMBOL s;
+        s.value = value;
+        s.refcnt = 0;
+        s.next = NULL;
+        s.prev = NULL;
+        s.nextr = NULL;
+        s.prevr = NULL;
+        if(IS_TERMINAL(&s)){
+            if(rule == NULL){
+                s.rule = rule;
+            }
+            else{
+                return NULL;
+            }
+        }
+        else if(IS_NONTERMINAL(&s)){
+            s.rule = rule;
+            if(rule != NULL){
+                rule->refcnt = (rule->refcnt)+1;
+            }
+        }
+        *(symbol_storage + num_symbols) = s;
+        num_symbols+=1;
+        return (symbol_storage + (num_symbols-1));
+    }
     return NULL;
 }
 
@@ -63,4 +121,12 @@ SYMBOL *new_symbol(int value, SYMBOL *rule) {
  */
 void recycle_symbol(SYMBOL *s) {
     // To be implemented.
+    if(recycled_symbols == NULL){
+        recycled_symbols = s;
+    }
+    else{
+        s->next = recycled_symbols;
+        recycled_symbols= s;
+    }
+
 }

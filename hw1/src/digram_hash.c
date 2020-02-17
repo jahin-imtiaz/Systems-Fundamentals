@@ -14,6 +14,10 @@
  */
 void init_digram_hash(void) {
     // To be implemented.
+    int i;
+    for(i = 0; i < MAX_DIGRAMS; i++){
+        *(digram_table+i) = NULL;
+    }
 }
 
 /**
@@ -26,6 +30,15 @@ void init_digram_hash(void) {
  */
 SYMBOL *digram_get(int v1, int v2) {
     // To be implemented.
+    int index = DIGRAM_HASH(v1, v2);
+    while(*(digram_table + index) != NULL){
+        if(*(digram_table + index) != TOMBSTONE){
+            if((*(digram_table + index))->value == v1 && ((*(digram_table + index))->next)->value == v2){
+                return *(digram_table + index);
+            }
+            index = (index+1) % MAX_DIGRAMS;
+        }
+    }
     return NULL;
 }
 
@@ -51,7 +64,23 @@ SYMBOL *digram_get(int v1, int v2) {
  */
 int digram_delete(SYMBOL *digram) {
     // To be implemented.
-    return -1;
+    if(digram == NULL || (digram->next) == NULL){
+        return -1;
+    }
+    else{
+        int index = DIGRAM_HASH(digram->value, (digram->next)->value);
+        int counter =1;
+
+        while(*(digram_table + index) != digram){
+            index = (index+1) % MAX_DIGRAMS;
+            if(counter == MAX_DIGRAMS){
+                return -1;
+            }
+            counter++;
+        }
+        *(digram_table + index) = TOMBSTONE;
+        return 0;
+    }
 }
 
 /**
@@ -65,5 +94,39 @@ int digram_delete(SYMBOL *digram) {
  */
 int digram_put(SYMBOL *digram) {
     // To be implemented.
+    if(digram == NULL || (digram->next) == NULL){
+        return -1;
+    }
+    else{
+        int index = DIGRAM_HASH(digram->value, (digram->next)->value);
+        int counter =1;
+        int ptombstone = -1;
+        while(*(digram_table + index) != NULL){
+            if(((*(digram_table + index))->value) == (digram->value) && (((*(digram_table + index))->next)->value) == (digram->next)->value){
+                return 1;
+            }
+
+            if(*(digram_table + index) == TOMBSTONE && ptombstone == -1){
+                ptombstone = index;
+            }
+
+            index = (index+1) % MAX_DIGRAMS;
+            if(counter == MAX_DIGRAMS){
+                if(ptombstone != -1){
+                    *(digram_table + ptombstone) = digram;
+                }
+                else return -1;
+            }
+            counter++;
+        }
+        if(ptombstone == -1){
+            *(digram_table + index) = digram;
+            return 0;
+        }
+        else{
+            *(digram_table + ptombstone) = digram;
+            return 0;
+        }
+    }
     return -1;
 }

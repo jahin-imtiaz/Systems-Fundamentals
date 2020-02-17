@@ -51,6 +51,11 @@
  */
 void init_rules(void) {
     // To be implemented.
+    main_rule = NULL;
+    int i;
+    for(i =0; i< SYMBOL_VALUE_MAX; i++){
+        *(rule_map+i) = NULL;
+    }
 }
 
 /**
@@ -70,7 +75,19 @@ void init_rules(void) {
  */
 SYMBOL *new_rule(int v) {
     // To be implemented.
-    return NULL;
+    if(v >= FIRST_NONTERMINAL){
+        SYMBOL *s;
+        s = new_symbol(v, NULL);
+        s->rule = s;
+        s->next = s;
+        s->prev = s;
+        return s;
+    }
+    else{
+        printf("%s\n", "Rule is n");
+        printf("%c\n", v);
+        return NULL;
+    }
 }
 
 /**
@@ -86,6 +103,17 @@ SYMBOL *new_rule(int v) {
  */
 void add_rule(SYMBOL *rule) {
     // To be implemented.
+    if(main_rule == NULL){
+        main_rule = rule;
+        main_rule->nextr = main_rule;
+        main_rule->prevr = main_rule;
+    }
+    else{
+        (main_rule->prevr)->nextr = rule;
+        rule->prevr = main_rule->prevr;
+        rule->nextr = main_rule;
+        main_rule->prevr = rule;
+    }
 }
 
 /**
@@ -101,6 +129,11 @@ void add_rule(SYMBOL *rule) {
  */
 void delete_rule(SYMBOL *rule) {
     // To be implemented.
+    (rule->prevr)->nextr = rule->nextr;
+    (rule->nextr)->prevr = rule->prevr;
+    if((rule->refcnt) == 0){
+        recycle_symbol(rule);
+    }
 }
 
 /**
@@ -111,7 +144,8 @@ void delete_rule(SYMBOL *rule) {
  */
 SYMBOL *ref_rule(SYMBOL *rule) {
     // To be implemented.
-    return NULL;
+    rule->refcnt = (rule->refcnt)+1;
+    return rule;
 }
 
 /**
@@ -124,4 +158,11 @@ SYMBOL *ref_rule(SYMBOL *rule) {
  */
 void unref_rule(SYMBOL *rule) {
     // To be implemented.
+    if((rule->refcnt)-1 <0){
+
+    }
+    else{
+        rule->refcnt = (rule-> refcnt)-1;
+    }
+
 }
