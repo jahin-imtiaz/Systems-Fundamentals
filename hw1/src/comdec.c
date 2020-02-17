@@ -27,6 +27,8 @@ int getValue(int i, int byteCount, FILE *in);
 void expand_rules(SYMBOL *rule, FILE *out);
 int validUTF(int c);
 int notMarker(int c);
+void expand_blocks(SYMBOL *rule_head, FILE *out);
+void print_UTF_value(int v);
 /*
  * You may modify this file and/or move the functions contained here
  * to other source files (except for main.c) as you wish.
@@ -68,9 +70,56 @@ int notMarker(int c);
  */
 int compress(FILE *in, FILE *out, int bsize) {
     // To be implemented.
+    fputc(SOT, out);
+    int c;
+    while((c=fgetc(in)) != EOF){
+        int i;
+        init_symbols();
+        init_rules();
+        init_digram_hash();
+
+        SYMBOL *m_rule = new_rule(next_nonterminal_value);
+        add_rule(m_rule);
+
+        SYMBOL *ptr = main_rule;
+        for(i=0; i < bsize ; i++){
+
+            SYMBOL *s = new_symbol(c, NULL);
+            insert_after(ptr, s);
+            check_digram(ptr);
+            ptr = s;
+            if(i != bsize-1){
+                c = fgetc(in);
+            }
+        }
+        expand_blocks(main_rule, out);
+    }
+    fputc(EOT, out);
     return EOF;
 }
 
+void expand_blocks(SYMBOL *rule_head, FILE *out){
+    if(rule_head != NULL){
+        fputc(SOB, out);
+        SYMBOL *ptr = rule_head;
+        do{
+            SYMBOL *ptr2 = ptr;
+            do{
+                //print the symbol at ptr2
+                print_UTF_value(ptr2->value);
+                ptr2 = ptr ->next;
+            }while(ptr2 != ptr);
+
+            fputc(RD, out);
+            ptr = ptr->nextr;
+        }while(ptr != rule_head);
+        fputc(EOB, out);
+    }
+}
+
+void print_UTF_value(int v){
+
+}
 /**
  * Main decompression function.
  * Reads a compressed data transmission from an input stream, expands it,
