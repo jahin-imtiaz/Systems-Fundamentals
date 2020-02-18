@@ -83,13 +83,15 @@ int compress(FILE *in, FILE *out, int bsize) {
 
         SYMBOL *ptr = main_rule;
         for(i=0; i < bsize ; i++){
-
             SYMBOL *s = new_symbol(c, NULL);
             insert_after(ptr, s);
             check_digram(ptr);
             ptr = s;
             if(i != bsize-1){
                 c = fgetc(in);
+            }
+            if(c == EOF){
+                break;
             }
         }
         expand_blocks(main_rule, out);
@@ -107,7 +109,7 @@ void expand_blocks(SYMBOL *rule_head, FILE *out){
             do{
                 //print the symbol at ptr2
                 print_UTF_value(ptr2->value, out);
-                ptr2 = ptr ->next;
+                ptr2 = ptr2 ->next;
             }while(ptr2 != ptr);
 
             fputc(RD, out);

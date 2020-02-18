@@ -12,9 +12,9 @@
     cr_assert_eq(ret, exp_ret, "Invalid return for valid args.  Got: %d | Expected: %d",
 		 ret, exp_ret);
     cr_assert_eq(opt & flag, flag, "Correct bit (0x1) not set for -h. Got: %x", opt);
-}
+}*/
 
-Test(basecode_tests_suite, validargs_compress_test) {
+/*Test(basecode_tests_suite, validargs_compress_test) {
     int argc = 4;
     char *argv[] = {"bin/sequitur", "-c", "-b", "10", NULL};
     int ret = validargs(argc, argv);
@@ -28,9 +28,9 @@ Test(basecode_tests_suite, validargs_compress_test) {
     cr_assert(opt & flag, "Compress mode bit wasn't set. Got: %x", opt);
     cr_assert_eq(exp_size, size, "Block size not properly set. Got: %d | Expected: %d",
 		 exp_size, size);
-}
+}*/
 
-Test(basecode_tests_suite, validargs_error_test) {
+/*Test(basecode_tests_suite, validargs_error_test) {
     int argc = 4;
     char *argv[] = {"bin/sequitur", "-d", "-b", "10", NULL};
     //char *argv[] = {"bin/sequitur","-c", NULL};
@@ -38,9 +38,9 @@ Test(basecode_tests_suite, validargs_error_test) {
     int exp_ret = -1;
     cr_assert_eq(ret, exp_ret, "Invalid return for valid args.  Got: %d | Expected: %d",
 		 ret, exp_ret);
-}
+}*/
 
-Test(basecode_tests_suite, help_system_test) {
+/*Test(basecode_tests_suite, help_system_test) {
     char *cmd = "bin/sequitur -h";
 
     // system is a syscall defined in stdlib.h
@@ -61,8 +61,17 @@ Test(basecode_tests_suite, decompress) {
 
     //decompress(in, out);
 
-    FILE *in = fopen("rsrc/twelve_days.txt.seq", "r");
-    FILE *out = fopen("rsrc/sheetOutput.txt", "w+");
+    FILE *in = fopen("rsrc/sheetOutputCompress.txt.seq", "r");
+    FILE *out = fopen("rsrc/sheetOutputDecompress.txt", "w+");
 
     decompress(in, out);
 }
+
+/*Test(basecode_tests_suite, decompress) {
+
+    FILE *out = fopen("rsrc/sheetOutputCompress.txt.seq", "w+");
+    FILE *in = fopen("rsrc/sheetOutput.txt", "r");
+
+    compress(in, out, 1024);
+}
+*/

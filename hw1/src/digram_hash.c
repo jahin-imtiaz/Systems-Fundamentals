@@ -31,13 +31,18 @@ void init_digram_hash(void) {
 SYMBOL *digram_get(int v1, int v2) {
     // To be implemented.
     int index = DIGRAM_HASH(v1, v2);
+    int counter =1;
     while(*(digram_table + index) != NULL){
         if(*(digram_table + index) != TOMBSTONE){
             if((*(digram_table + index))->value == v1 && ((*(digram_table + index))->next)->value == v2){
                 return *(digram_table + index);
             }
-            index = (index+1) % MAX_DIGRAMS;
         }
+        index = (index+1) % MAX_DIGRAMS;
+        if(counter == MAX_DIGRAMS){
+            return NULL;
+        }
+        counter++;
     }
     return NULL;
 }
@@ -93,7 +98,7 @@ int digram_delete(SYMBOL *digram) {
  * table being full or the given digram not being well-formed.
  */
 int digram_put(SYMBOL *digram) {
-    // To be implemented.
+    // To be implemented
     if(digram == NULL || (digram->next) == NULL){
         return -1;
     }
@@ -102,14 +107,12 @@ int digram_put(SYMBOL *digram) {
         int counter =1;
         int ptombstone = -1;
         while(*(digram_table + index) != NULL){
-            if(((*(digram_table + index))->value) == (digram->value) && (((*(digram_table + index))->next)->value) == (digram->next)->value){
+            if(*(digram_table + index) == digram){
                 return 1;
             }
-
             if(*(digram_table + index) == TOMBSTONE && ptombstone == -1){
                 ptombstone = index;
             }
-
             index = (index+1) % MAX_DIGRAMS;
             if(counter == MAX_DIGRAMS){
                 if(ptombstone != -1){
