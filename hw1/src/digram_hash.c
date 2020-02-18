@@ -76,7 +76,7 @@ int digram_delete(SYMBOL *digram) {
         int index = DIGRAM_HASH(digram->value, (digram->next)->value);
         int counter =1;
 
-        while(*(digram_table + index) != digram){
+        while(*(digram_table + index) != digram  && *(digram_table + index) != NULL){
             index = (index+1) % MAX_DIGRAMS;
             if(counter == MAX_DIGRAMS){
                 return -1;
@@ -117,6 +117,7 @@ int digram_put(SYMBOL *digram) {
             if(counter == MAX_DIGRAMS){
                 if(ptombstone != -1){
                     *(digram_table + ptombstone) = digram;
+                    return 0;
                 }
                 else return -1;
             }

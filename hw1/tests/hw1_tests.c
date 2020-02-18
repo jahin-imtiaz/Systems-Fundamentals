@@ -54,30 +54,30 @@
 		 return_code);
 }*/
 
-Test(basecode_tests_suite, decompress) {
+/*Test(basecode_tests_suite, decompress) {
 
-/*    FILE *in = fopen("rsrc/sheet.txt.seq", "r");
+    FILE *in = fopen("rsrc/sheet.txt.seq", "r");
     FILE *out = fopen("rsrc/sheetOutput.txt", "w+");
 
     //decompress(in, out);
 
     FILE *in = fopen("rsrc/sheetOutputCompress.txt.seq", "r");
-    FILE *out = fopen("rsrc/sheetOutputDecompress.txt", "w+");*/
+    FILE *out = fopen("rsrc/sheetOutputDecompress.txt", "w+");
 
     FILE *in = fopen("rsrc/twelvedaysCompress.txt.seq", "r");
     FILE *out = fopen("rsrc/twelvedaysDecompress.txt.seq", "w+");
 
     decompress(in, out);
-}
+}*/
 
-/*Test(basecode_tests_suite, decompress) {
+Test(basecode_tests_suite, compress) {
 
-    FILE *out = fopen("rsrc/sheetOutputCompress.txt.seq", "w+");
-    FILE *in = fopen("rsrc/sheetOutput.txt", "r");
+    /*FILE *out = fopen("rsrc/sheetOutputCompress.txt.seq", "w+");
+    FILE *in = fopen("rsrc/sheetOutput.txt", "r");*/
 
 
     FILE *out = fopen("rsrc/twelvedaysCompress.txt.seq", "w+");
     FILE *in = fopen("rsrc/twelve_days.txt", "r");
 
     compress(in, out, 1024);
-}*/
+}

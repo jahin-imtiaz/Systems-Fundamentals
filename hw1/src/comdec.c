@@ -80,12 +80,12 @@ int compress(FILE *in, FILE *out, int bsize) {
         SYMBOL *m_rule = new_rule(next_nonterminal_value);
         add_rule(m_rule);
         SYMBOL *ptr = main_rule;
-        for(i=0; i < bsize ; i++){
+        for(i=0; i < bsize*1024 ; i++){
             SYMBOL *s = new_symbol(c, NULL);
             insert_after(ptr, s);
             check_digram(ptr);
             ptr = s;
-            if(i != bsize-1){
+            if(i != (bsize*1024)-1){
                 c = fgetc(in);
             }
             if(c == EOF){
