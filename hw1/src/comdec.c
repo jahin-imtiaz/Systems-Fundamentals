@@ -77,10 +77,8 @@ int compress(FILE *in, FILE *out, int bsize) {
         init_symbols();
         init_rules();
         init_digram_hash();
-
         SYMBOL *m_rule = new_rule(next_nonterminal_value);
         add_rule(m_rule);
-
         SYMBOL *ptr = main_rule;
         for(i=0; i < bsize ; i++){
             SYMBOL *s = new_symbol(c, NULL);
@@ -95,8 +93,12 @@ int compress(FILE *in, FILE *out, int bsize) {
             }
         }
         expand_blocks(main_rule, out);
+        if(c == EOF){
+            break;
+        }
     }
     fputc(EOT, out);
+    fflush(out);
     return EOF;
 }
 
@@ -107,7 +109,6 @@ void expand_blocks(SYMBOL *rule_head, FILE *out){
         do{
             SYMBOL *ptr2 = ptr;
             do{
-                //print the symbol at ptr2
                 print_UTF_value(ptr2->value, out);
                 ptr2 = ptr2 ->next;
             }while(ptr2 != ptr);

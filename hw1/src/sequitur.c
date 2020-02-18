@@ -34,7 +34,6 @@ static void join_symbols(SYMBOL *this, SYMBOL *next) {
     if(this->next) {
 	// We will be assigning to this->next, which will destroy any digram
 	// that starts at this.  So that is what we have to delete from the table.
-	printf("%s\n", "came to join symbol");
     digram_delete(this);
 
 	// We have to have special-case treatment of triples, which are occurrences
@@ -74,7 +73,6 @@ static void join_symbols(SYMBOL *this, SYMBOL *next) {
 void insert_after(SYMBOL *this, SYMBOL *next) {
     debug("Insert symbol <%lu> after %s%lu%s", SYMBOL_INDEX(next),
 	  IS_RULE_HEAD(this) ? "[" : "<", SYMBOL_INDEX(this), IS_RULE_HEAD(this) ? "]" : ">");
-    printf("%s\n", "came to insert_after");
     join_symbols(next, this->next);
     join_symbols(this, next);
 }
@@ -86,7 +84,6 @@ void insert_after(SYMBOL *this, SYMBOL *next) {
  * @param this  The symbol to be deleted.
  */
 static void delete_symbol(SYMBOL *this) {
-    printf("%s\n", "came to delete symbol" );
     debug("Delete symbol <%lu> (value=%d)", SYMBOL_INDEX(this), this->value);
     if(IS_RULE_HEAD(this)) {
 	fprintf(stderr, "Attempting to delete a rule sentinel!\n");
@@ -116,7 +113,6 @@ static void expand_instance(SYMBOL *this) {
     SYMBOL *rule = this->rule;
     debug("Expand last instance of underutilized rule [%lu] for %d",
 	   SYMBOL_INDEX(rule), rule->value);
-    printf("%s\n", "came to expand instance");
     if(rule->refcnt != 1) {
 	fprintf(stderr, "Attempting to delete a rule with multiple references!\n");
 	abort();
@@ -154,7 +150,6 @@ static void replace_digram(SYMBOL *this, SYMBOL *rule) {
     debug("Replace digram <%lu> using rule [%lu] for %d",
 	  SYMBOL_INDEX(this), SYMBOL_INDEX(rule), rule->value);
     SYMBOL *prev = this->prev;
-    printf("%s\n", "came to replace_digram");
 
     // Delete the two nodes of the digram headed by "this", handling the removal
     // of any digrams that are thereby destroyed.
@@ -280,7 +275,6 @@ static void process_match(SYMBOL *this, SYMBOL *match) {
  */
 int check_digram(SYMBOL *this) {
     debug("Check digram <%lu> for a match", SYMBOL_INDEX(this));
-    printf("%s\n", "came to check_digram");
     // If the "digram" is actually a single symbol at the beginning or
     // end of a rule, then there is no need to do anything.
     if(IS_RULE_HEAD(this) || IS_RULE_HEAD(this->next))
