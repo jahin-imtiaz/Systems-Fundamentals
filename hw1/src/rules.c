@@ -84,8 +84,6 @@ SYMBOL *new_rule(int v) {
         return s;
     }
     else{
-        printf("%s\n", "Rule is n");
-        printf("%c\n", v);
         return NULL;
     }
 }
@@ -103,16 +101,18 @@ SYMBOL *new_rule(int v) {
  */
 void add_rule(SYMBOL *rule) {
     // To be implemented.
-    if(main_rule == NULL){
-        main_rule = rule;
-        main_rule->nextr = main_rule;
-        main_rule->prevr = main_rule;
-    }
-    else{
-        (main_rule->prevr)->nextr = rule;
-        rule->prevr = main_rule->prevr;
-        rule->nextr = main_rule;
-        main_rule->prevr = rule;
+    if (rule != NULL){
+        if(main_rule == NULL){
+            main_rule = rule;
+            main_rule->nextr = main_rule;
+            main_rule->prevr = main_rule;
+        }
+        else{
+            (main_rule->prevr)->nextr = rule;
+            rule->prevr = main_rule->prevr;
+            rule->nextr = main_rule;
+            main_rule->prevr = rule;
+        }
     }
 }
 
@@ -129,10 +129,12 @@ void add_rule(SYMBOL *rule) {
  */
 void delete_rule(SYMBOL *rule) {
     // To be implemented.
-    (rule->prevr)->nextr = rule->nextr;
-    (rule->nextr)->prevr = rule->prevr;
-    if((rule->refcnt) == 0){
-        recycle_symbol(rule);
+    if(rule != NULL){
+        (rule->prevr)->nextr = rule->nextr;
+        (rule->nextr)->prevr = rule->prevr;
+        if((rule->refcnt) == 0){
+            recycle_symbol(rule);
+        }
     }
 }
 
@@ -144,8 +146,11 @@ void delete_rule(SYMBOL *rule) {
  */
 SYMBOL *ref_rule(SYMBOL *rule) {
     // To be implemented.
-    rule->refcnt = (rule->refcnt)+1;
-    return rule;
+    if(rule != NULL){
+        rule->refcnt = (rule->refcnt)+1;
+        return rule;
+    }
+    else return NULL;
 }
 
 /**
@@ -158,11 +163,13 @@ SYMBOL *ref_rule(SYMBOL *rule) {
  */
 void unref_rule(SYMBOL *rule) {
     // To be implemented.
-    if((rule->refcnt)-1 <0){
-
+    if(rule != NULL){
+        if((rule->refcnt)-1 <0){
+            fprintf(stderr, "Reference count will become negative if decreased.\n");
+            abort();
+        }
+        else{
+            rule->refcnt = (rule-> refcnt)-1;
+        }
     }
-    else{
-        rule->refcnt = (rule-> refcnt)-1;
-    }
-
 }

@@ -18,12 +18,6 @@
 
 int main(int argc, char **argv)
 {
-    /*int ret;
-    if(validargs(argc, argv))
-        USAGE(*argv, EXIT_FAILURE);
-    debug("Options: 0x%x", global_options);
-    if(global_options & 1)
-        USAGE(*argv, EXIT_SUCCESS);*/
     int ret;
     ret = validargs(argc, argv);
     if(ret == 0){
@@ -31,15 +25,19 @@ int main(int argc, char **argv)
             USAGE(*argv, EXIT_SUCCESS);
         }
         else if(global_options & 4){
-            decompress(stdin, stdout);
-            exit(EXIT_SUCCESS);
+            if(decompress(stdin, stdout) == EOF){
+                exit(EXIT_FAILURE);
+            }
+            else exit(EXIT_SUCCESS);
         }
         else if(global_options & 2){
             int g = global_options;
-            g = g & 0xff00;
+            g = g & 0xffff0000;
             g = g >>16;
-            compress(stdin, stdout, g);
-            exit(EXIT_SUCCESS);
+            if(compress(stdin, stdout, g) == EOF){
+                exit(EXIT_FAILURE);
+            }
+            else exit(EXIT_SUCCESS);
         }
     }
     else if(ret == -1){

@@ -51,7 +51,8 @@ void init_symbols(void) {
 SYMBOL *new_symbol(int value, SYMBOL *rule) {
     // To be implemented.
     if(num_symbols == MAX_SYMBOLS && recycled_symbols == NULL){
-
+        fprintf(stderr, "New symbol was not created due to exhausted storage\n");
+        abort();
     }
     else if(recycled_symbols != NULL){
         recycled_symbols->value = value;
