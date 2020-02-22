@@ -34,7 +34,7 @@ int main(int argc, char **argv)
             int g = global_options;
             g = g & 0xffff0000;
             g = g >>16;
-            if(compress(stdin, stdout, g) == EOF){
+            if(compress(stdin, stdout, (g*1024)) == EOF){
                 exit(EXIT_FAILURE);
             }
             else exit(EXIT_SUCCESS);

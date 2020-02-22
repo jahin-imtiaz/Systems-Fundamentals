@@ -20,15 +20,15 @@
 #define EOB 0x84
 #define EOT 0x82
 
-int isDigit(char c);
-SYMBOL *createRule(int ci, FILE *in, int *pc);
-int getByteCount(int i);
-int getValue(int i, int byteCount, FILE *in);
-void expand_rules(SYMBOL *rule, FILE *out);
-int validUTF(int c);
-int notMarker(int c);
-void expand_blocks(SYMBOL *rule_head, FILE *out);
-void print_UTF_value(int v, FILE *out);
+static int isDigit(char c);
+static SYMBOL *createRule(int ci, FILE *in, int *pc);
+static int getByteCount(int i);
+static int getValue(int i, int byteCount, FILE *in);
+static void expand_rules(SYMBOL *rule, FILE *out, int *bc);
+static int validUTF(int c);
+static int notMarker(int c);
+static int expand_blocks(SYMBOL *rule_head, FILE *out, int *pbc);
+static int print_UTF_value(int v, FILE *out,int *pbc );
 /*
  * You may modify this file and/or move the functions contained here
  * to other source files (except for main.c) as you wish.
@@ -70,8 +70,12 @@ void print_UTF_value(int v, FILE *out);
  */
 int compress(FILE *in, FILE *out, int bsize) {
     // To be implemented.
-    fputc(SOT, out);
+    if(fputc(SOT, out) == EOF){
+        return EOF;
+    }
     int c;
+    int bc =1;
+    int *pbc = &bc;
     while((c=fgetc(in)) != EOF){
         int i;
         init_symbols();
@@ -80,50 +84,60 @@ int compress(FILE *in, FILE *out, int bsize) {
         SYMBOL *m_rule = new_rule(next_nonterminal_value);
         add_rule(m_rule);
         SYMBOL *ptr = main_rule;
-        for(i=0; i < bsize*1024 ; i++){
+        for(i=0; i < bsize ; i++){
             SYMBOL *s = new_symbol(c, NULL);
             insert_after(ptr, s);
             check_digram(ptr);
             ptr = s;
-            if(i != (bsize*1024)-1){
+            if(i != (bsize)-1){
                 c = fgetc(in);
             }
             if(c == EOF){
                 break;
             }
         }
-        expand_blocks(main_rule, out);
+        if(expand_blocks(main_rule, out, pbc) == EOF) return EOF;
         if(c == EOF){
             break;
         }
     }
-    fputc(EOT, out);
+    if(fputc(EOT, out) == EOF){
+        return EOF;
+    }
+    bc++;
     fflush(out);
-    return EOF;
+    return bc;
 }
 
-void expand_blocks(SYMBOL *rule_head, FILE *out){
+static int expand_blocks(SYMBOL *rule_head, FILE *out, int *pbc){
     if(rule_head != NULL){
-        fputc(SOB, out);
+        if(fputc(SOB, out) == EOF) return EOF;
+        (*pbc)++;
         SYMBOL *ptr = rule_head;
         do{
             SYMBOL *ptr2 = ptr;
             do{
-                print_UTF_value(ptr2->value, out);
+                if(print_UTF_value(ptr2->value, out, pbc) == EOF) return EOF;
                 ptr2 = ptr2 ->next;
             }while(ptr2 != ptr);
 
-            fputc(RD, out);
             ptr = ptr->nextr;
+            if(ptr != rule_head){
+                if(fputc(RD, out) == EOF) return EOF;
+                (*pbc)++;
+            }
         }while(ptr != rule_head);
-        fputc(EOB, out);
+        if(fputc(EOB, out) == EOF) return EOF;
+        (*pbc)++;
     }
+    return 0;
 }
 
-void print_UTF_value(int v, FILE *out){
+static int print_UTF_value(int v, FILE *out, int *pbc){
     if(v >= 0 && v <= 0x7f){
         //1 Byte
-        fputc(v, out);
+        if(fputc(v, out) == EOF) return EOF;
+        (*pbc)++;
     }
     else if(v > 0x7f && v <= 0x7ff){
         //2 Byte
@@ -137,8 +151,10 @@ void print_UTF_value(int v, FILE *out){
 
         byte1 = v | 0xc0;
 
-        fputc(byte1, out);
-        fputc(byte2, out);
+        if(fputc(byte1, out) == EOF) return EOF;
+        (*pbc)++;
+        if(fputc(byte2, out) == EOF) return EOF;
+        (*pbc)++;
     }
     else if(v >0x7ff && v <= 0xffff){
         //3 Byte
@@ -158,9 +174,12 @@ void print_UTF_value(int v, FILE *out){
 
         byte1 = v | 0xe0;
 
-        fputc(byte1, out);
-        fputc(byte2, out);
-        fputc(byte3, out);
+        if(fputc(byte1, out) == EOF) return EOF;
+        (*pbc)++;
+        if(fputc(byte2, out) == EOF) return EOF;
+        (*pbc)++;
+        if(fputc(byte3, out) == EOF) return EOF;
+        (*pbc)++;
 
     }
     else if(v > 0xffff && v <= 0x1ffff){
@@ -187,11 +206,16 @@ void print_UTF_value(int v, FILE *out){
 
         byte1 = v | 0xf0;
 
-        fputc(byte1, out);
-        fputc(byte2, out);
-        fputc(byte3, out);
-        fputc(byte4, out);
+        if(fputc(byte1, out) == EOF) return EOF;
+        (*pbc)++;
+        if(fputc(byte2, out) == EOF) return EOF;
+        (*pbc)++;
+        if(fputc(byte3, out) == EOF) return EOF;
+        (*pbc)++;
+        if(fputc(byte4, out) == EOF) return EOF;
+        (*pbc)++;
     }
+    return 0;
 }
 /**
  * Main decompression function.
@@ -207,12 +231,23 @@ void print_UTF_value(int v, FILE *out){
 int decompress(FILE *in, FILE *out) {
     // To be implemented.
     int c;
+    int bc =0;
     int *pc =&c;
-    while((unsigned char)(c = fgetc(in))!=(unsigned char)EOT && (unsigned char)c!=(unsigned char)EOF){
-        if((unsigned char)c == (unsigned char)SOB){            c=fgetc(in);
+    int *pbc = &bc;
+    if((c=fgetc(in)) !=SOT){
+        return EOF;
+    }
+    while((unsigned char)(c = fgetc(in))!=(unsigned char)EOT){
+        if((unsigned char)c == (unsigned char)SOB){
+            c=fgetc(in);
             while((unsigned char)c !=(unsigned char)EOB){
                 if(validUTF(c) && notMarker(c)){
                     SYMBOL *s = createRule(c,in, pc);
+                    //returned value is null when less then two non-terminal
+                    //symbol in the rule body
+                    if(s == NULL){
+                        return EOF;
+                    }
                     *(rule_map+(s->value)) = s;
                     if((unsigned char)c ==(unsigned char)EOB){
                         break;
@@ -220,23 +255,36 @@ int decompress(FILE *in, FILE *out) {
                 }
                 c=fgetc(in);
             }
-            expand_rules(main_rule, out);
+            //each block has to have atleast one rule
+            if(main_rule == NULL){
+                return EOF;
+            }
+            expand_rules(main_rule, out, pbc);
             init_symbols();
             init_rules();
         }
+        else{
+            return EOF;
+        }
 
     }
-    fflush(out);
-    return EOF;
+    if((unsigned char)(c=fgetc(in)) !=(unsigned char)EOF){
+        return EOF;
+    }
+    else {
+        fflush(out);
+        return bc;
+    }
 }
 
 
-SYMBOL *createRule(int ci, FILE *in, int *pc){
+static SYMBOL *createRule(int ci, FILE *in, int *pc){
     int count = getByteCount(ci);
     int v= getValue(ci,count, in);
     SYMBOL *new = new_rule(v);
     SYMBOL *ptr = new;
     add_rule(new);
+    int symbol_counter = 0;
     while((unsigned char)(ci=fgetc(in)) != (unsigned char)RD && (unsigned char)ci != (unsigned char) EOB){
         if(validUTF(ci)){
             count = getByteCount(ci);
@@ -247,15 +295,21 @@ SYMBOL *createRule(int ci, FILE *in, int *pc){
             (*bnew).next = new;
             (*new).prev =bnew;
             ptr= bnew;
+
+            symbol_counter++;
         }
     }
+    if(symbol_counter <2){
+        return NULL;
+    }
+
     if((unsigned char)ci == (unsigned char) EOB){
         *pc = ci;
     }
     return new;
 }
 
-int getByteCount(int i){
+static int getByteCount(int i){
     if((i & 0xf8) == 0xf0){
         return 4;
     }
@@ -270,7 +324,7 @@ int getByteCount(int i){
     }
     else return 0;
 }
-int getValue(int i, int byteCount, FILE *in){
+static int getValue(int i, int byteCount, FILE *in){
     int j;
     if(byteCount == 4){
         i = i & 0x07;
@@ -296,27 +350,28 @@ int getValue(int i, int byteCount, FILE *in){
 }
 
 
-void expand_rules(SYMBOL *ruleHead, FILE *out){
+static void expand_rules(SYMBOL *ruleHead, FILE *out, int *pbc){
     SYMBOL *ptr = ruleHead->next;
     while(ptr != ruleHead){
         if(IS_TERMINAL(ptr)){
             fputc((ptr->value),out);
+            (*pbc) +=1;
         }
         else if(IS_NONTERMINAL(ptr)){
-            expand_rules(*(rule_map+(ptr->value)),out);
+            expand_rules(*(rule_map+(ptr->value)),out, pbc);
         }
         ptr = ptr->next;
     }
 }
 
-int validUTF(int c){
+static int validUTF(int c){
     if(getByteCount(c)){
         return 1;
     }
     else return 0;
 }
 
-int notMarker(int c){
+static int notMarker(int c){
     if(((unsigned char)c == SOB) || ((unsigned char)c == SOT) ||((unsigned char)c == EOT) || ((unsigned char)c == RD)){
         return 0;
     }
@@ -427,7 +482,7 @@ int validargs(int argc, char **argv)
     return -1;
 }
 
-int isDigit(char c){
+static int isDigit(char c){
     if(c >= '0' && c <= '9'){
         return 1;
     }
