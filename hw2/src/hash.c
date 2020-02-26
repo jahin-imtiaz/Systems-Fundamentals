@@ -39,8 +39,14 @@ static int      hs_tables = 0,	/* number of tables allocated */
   * to the table.  A separate table is maintained for each major device
   * number, so separate file systems each have their own table.
   */
-
-int h_enter(dev_t dev, ino_t ino)
+#ifdef LINUX
+  int h_enter(dev_t dev, ino_t ino)
+#else
+  int
+  h_enter(dev,ino)
+    dev_t dev;
+      ino_t ino;
+#endif
 {
     static struct htable *tablep = (struct htable *) 0;
     register struct hbucket *bucketp;
@@ -128,7 +134,12 @@ int h_enter(dev_t dev, ino_t ino)
  /* Buffer statistics functions.  Print 'em out. */
 
 #ifdef HSTATS
-void h_stats()
+#ifdef LINUX
+  void h_stats()
+#else
+  void
+  h_stats()
+#endif
 {
     fprintf(stderr, "\nHash table management statistics:\n");
     fprintf(stderr, "  Tables allocated: %d\n", hs_tables);

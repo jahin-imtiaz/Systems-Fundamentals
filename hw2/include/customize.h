@@ -1,4 +1,4 @@
-/* 
+/*
    This is the customizations file.  It changes our ideas of
    how to read directories.
 */
@@ -38,6 +38,17 @@
 #	define	INO(x)	((x).d_ino)
 
 #	include		"direct.c"
+
+#endif
+
+#ifdef LINUX
+
+#   include <dirent.h>
+
+#   define  OPEN    DIR
+#   define  READ    struct dirent
+#   define  NAME(x)
+#   define  INO(x)
 
 #endif
 
