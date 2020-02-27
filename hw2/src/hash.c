@@ -19,9 +19,15 @@
 #include "hash.h"
 
 static struct htable *tables[TABLES];
+
+#ifdef LINUX
+#include <stdlib.h>
+#include <string.h>
+else
 extern char *malloc();		/* added 6/17/88 */
 extern char *realloc();		/* added 6/17/88 */
 extern char *calloc();		/* added 6/17/88 */
+#endif
 
 /* These are for statistical use later on. */
 static int      hs_tables = 0,	/* number of tables allocated */
@@ -42,7 +48,6 @@ static int      hs_tables = 0,	/* number of tables allocated */
 #ifdef LINUX
   int h_enter(dev_t dev, ino_t ino)
 #else
-  int
   h_enter(dev,ino)
     dev_t dev;
       ino_t ino;

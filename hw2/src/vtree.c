@@ -62,9 +62,11 @@
 
 #include "customize.h"
 #include "hash.h"
-#include <unistd.h>
-#include <stdlib.h>
 
+#ifndef BSD
+#include <unistd.h>
+#endif
+#include <stdlib.h>
 
 #ifdef	SYS_III
 	#define	rewinddir(fp)	rewind(fp)
@@ -130,13 +132,13 @@ long            total_sizes, sizes;	/* block count */
 
 char            topdir[NAMELEN];	/* our starting directory */
 
-
+#ifdef LINUX
 void get_data(char *path, int cont);
 int	is_directory(char *path);
 int	chk_4_dir(char *path);
 void down(char *subdir);
 char *lastfield(char *p, int c);
-
+#endif
 
 /*
 ** Find the last field of a string.
@@ -173,13 +175,17 @@ int	last_subdir = FALSE;	/* the visual display */
 #ifdef LINUX
 	void down(char *subdir)
 #else
-	void down(subdir)
+	down(subdir)
 	char *subdir;
 #endif
 {
 OPEN	*dp;			/* stream from a directory */
+#ifndef LINUX
 OPEN	*opendir ();
 READ	*readdir ();
+void get_data();
+int	chk_4_dir();
+#endif
 char	cwd[NAMELEN], tmp[NAMELEN];
 READ	*file;			/* directory entry */
 int	i, x;
@@ -451,6 +457,9 @@ READ		tmp_entry;
 	char *path;
 #endif
 {
+	#ifndef LINUX
+	int	is_directory();
+	#endif
 	if (is_directory(path)) return TRUE;
 	else return FALSE;
 
@@ -489,13 +498,15 @@ READ		tmp_entry;
 #ifdef LINUX
 	void get_data(char *path, int cont)
 #else
-	void get_data(path, cont)
+	get_data(path, cont)
 	char *path;
 	int cont;
 #endif
 {
 /* struct	stat	stb; */
-
+	#ifndef LINUX
+	int h_enter();
+	#endif
 	if (cont) {
 		if (is_directory(path))
 			down(path);
@@ -522,6 +533,10 @@ int argc;
 char *argv[];
 #endif
 {
+
+#ifndef LINUX
+	void h_stats();
+#endif
 int	i,
 	err = FALSE;
 int	option;
