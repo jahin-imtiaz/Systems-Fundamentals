@@ -7,8 +7,7 @@
  *	for use on System III machines that don't have any other
  *	alternative.
  */
-
-#define NAMELENGTH	14
+#define NAMELENGTH  14
 #ifdef	SYS_III
 	FILE	*opendir(name)	{ return (fopen(name,"r") ); }
 

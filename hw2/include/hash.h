@@ -22,7 +22,5 @@ struct htable {
 #define NEW	1		/* inode has been added to hash */
 
 
-#ifdef LINUX
 int h_enter(dev_t dev, ino_t ino);
 void h_stats();
-#endif

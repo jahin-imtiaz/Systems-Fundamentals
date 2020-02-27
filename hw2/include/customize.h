@@ -10,16 +10,14 @@
 #	define	OPEN	DIR
 #	define	READ	struct direct
 #	define	NAME(x)	((x).d_name)
-#endif
 
-#ifdef SCO_XENIX
+#elif defined(SCO_XENIX)
 #	include <sys/ndir.h>
 #	define	OPEN	DIR
 #	define	READ	struct direct
 #	define	NAME(x)	((x).d_name)
-#endif
 
-#ifdef SYS_V
+#elif defined(SYS_V)
  /* Customize this.  This is part of Doug Gwyn's package for */
  /* reading directories.  If you've put this file somewhere */
  /* else, edit the next line. */
@@ -29,9 +27,8 @@
 #	define	OPEN	struct direct
 #	define	READ	struct dirent
 #	define	NAME(x)	((x).d_name)
-#endif
 
-#ifdef SYS_III
+#elif defined(SYS_III)
 #	define	OPEN	FILE
 #	define	READ	struct direct
 #	define	NAME(x)	((x).d_name)
@@ -39,19 +36,15 @@
 
 #	include		"direct.c"
 
-#endif
-
-#ifdef LINUX
+#else
 
 #   include <dirent.h>
-
 #   define  OPEN    DIR
 #   define  READ    struct dirent
-#   define  NAME(x)
-#   define  INO(x)
-
+#   define  NAME(x) ((x).d_name)
+#   define  INO(x)  ((x).d_ino)
 #endif
 
-#if !(defined(BSD) || !defined(SYS_V) || !defined(SYS_III) || !defined(SCO_XENIX))
+#if !(defined(BSD) || !defined(SYS_V) || !defined(SYS_III) || !defined(SCO_XENIX) || !defined(LINUX))
 "This is an Error"
 #endif
