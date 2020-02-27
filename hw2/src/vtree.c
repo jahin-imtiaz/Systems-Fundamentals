@@ -63,6 +63,7 @@
 #include "customize.h"
 #include "hash.h"
 #include <unistd.h>
+#include <stdlib.h>
 
 
 #ifdef	SYS_III
@@ -129,11 +130,12 @@ long            total_sizes, sizes;	/* block count */
 
 char            topdir[NAMELEN];	/* our starting directory */
 
-#ifdef LINUX
+
 void get_data(char *path, int cont);
 int	is_directory(char *path);
 int	chk_4_dir(char *path);
-#endif
+void down(char *subdir);
+char *lastfield(char *p, int c);
 
 
 /*
@@ -159,8 +161,6 @@ char *r;
 } /* lastfield */
 
 
-
-
  /*
   * We ran into a subdirectory.  Go down into it, and read everything
   * in there.
@@ -168,78 +168,6 @@ char *r;
 int	indented = FALSE;	/* These had to be global since they */
 int	last_indent = 0;	/* determine what gets displayed during */
 int	last_subdir = FALSE;	/* the visual display */
-
-
-
-/* Is the specified path a directory ? */
-#ifdef LINUX
-	int	is_directory(char *path)
-#else
-	int	is_directory(path)
-	char *path;
-#endif
-{
-
-#ifdef LSTAT
-	if (sw_follow_links)
-		stat(path, &stb);	/* follows symbolic links */
-	else
-		lstat(path, &stb);	/* doesn't follow symbolic links */
-#else
-	stat(path, &stb);
-#endif
-
-	if ((stb.st_mode & S_IFMT) == S_IFDIR)
-		return TRUE;
-	else return FALSE;
-} /* is_directory */
-
-
-
-#ifdef LINUX
-	int	chk_4_dir(char *path)
-#else
-	int	chk_4_dir(path)
-	char *path;
-#endif
-{
-	if (is_directory(path)) return TRUE;
-	else return FALSE;
-
-} /* chk_4_dir */
-
-
-
- /*
-  * Get the aged data on a file whose name is given.  If the file is a
-  * directory, go down into it, and get the data from all files inside.
-  */
-#ifdef LINUX
-	void get_data(char *path, int cont)
-#else
-	void get_data(path, cont)
-	char *path;
-	int cont;
-#endif
-{
-/* struct	stat	stb; */
-
-	if (cont) {
-		if (is_directory(path))
-			down(path);
-	}
-	else {
-		if (is_directory(path)) return;
-
-		    /* Don't do it again if we've already done it once. */
-
-		if ( (h_enter(stb.st_dev, stb.st_ino) == OLD) && (!dupl) )
-			return;
-		inodes++;
-		sizes+= K(stb.st_size);
-	}
-} /* get_data */
-
 
 
 #ifdef LINUX
@@ -251,9 +179,9 @@ int	last_subdir = FALSE;	/* the visual display */
 {
 OPEN	*dp;			/* stream from a directory */
 OPEN	*opendir ();
+READ	*readdir ();
 char	cwd[NAMELEN], tmp[NAMELEN];
 READ	*file;			/* directory entry */
-READ	*readdir ();
 int	i, x;
 
 #ifdef	MEMORY_BASED
@@ -515,6 +443,74 @@ READ		tmp_entry;
 
 } /* down */
 
+
+#ifdef LINUX
+	int	chk_4_dir(char *path)
+#else
+	int	chk_4_dir(path)
+	char *path;
+#endif
+{
+	if (is_directory(path)) return TRUE;
+	else return FALSE;
+
+} /* chk_4_dir */
+
+
+/* Is the specified path a directory ? */
+#ifdef LINUX
+	int	is_directory(char *path)
+#else
+	int	is_directory(path)
+	char *path;
+#endif
+{
+
+#ifdef LSTAT
+	if (sw_follow_links)
+		stat(path, &stb);	/* follows symbolic links */
+	else
+		lstat(path, &stb);	/* doesn't follow symbolic links */
+#else
+	stat(path, &stb);
+#endif
+
+	if ((stb.st_mode & S_IFMT) == S_IFDIR)
+		return TRUE;
+	else return FALSE;
+} /* is_directory */
+
+
+
+ /*
+  * Get the aged data on a file whose name is given.  If the file is a
+  * directory, go down into it, and get the data from all files inside.
+  */
+#ifdef LINUX
+	void get_data(char *path, int cont)
+#else
+	void get_data(path, cont)
+	char *path;
+	int cont;
+#endif
+{
+/* struct	stat	stb; */
+
+	if (cont) {
+		if (is_directory(path))
+			down(path);
+	}
+	else {
+		if (is_directory(path)) return;
+
+		    /* Don't do it again if we've already done it once. */
+
+		if ( (h_enter(stb.st_dev, stb.st_ino) == OLD) && (!dupl) )
+			return;
+		inodes++;
+		sizes+= K(stb.st_size);
+	}
+} /* get_data */
 
 
 
