@@ -175,7 +175,7 @@ int	last_subdir = FALSE;	/* the visual display */
 #ifdef LINUX
 	void down(char *subdir)
 #else
-	down(subdir)
+void down(subdir)
 	char *subdir;
 #endif
 {

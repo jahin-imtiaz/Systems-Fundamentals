@@ -23,7 +23,7 @@ static struct htable *tables[TABLES];
 #ifdef LINUX
 #include <stdlib.h>
 #include <string.h>
-else
+#else
 extern char *malloc();		/* added 6/17/88 */
 extern char *realloc();		/* added 6/17/88 */
 extern char *calloc();		/* added 6/17/88 */
