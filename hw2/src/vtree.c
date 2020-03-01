@@ -337,6 +337,8 @@ READ		tmp_entry;
 			if (strcmp(NAME(*file), "..") != SAME)
 				get_data(NAME(*file),FALSE);
 		}
+		inodes++; //count current directory as inode
+		sizes += K((stb.st_blocks)*512);  //count current directory size
 
 		if (cur_depth<depth) {
 			if (cnt_inodes) printf("   %d",inodes);
@@ -511,9 +513,6 @@ READ		tmp_entry;
 	}
 	else {
 		if (is_directory(path)) {
-			/*Changed from only return to this*/
-			inodes++;
-			sizes += K((stb.st_blocks)*512);
 			return;
 		}
 		    /* Don't do it again if we've already done it once. */
