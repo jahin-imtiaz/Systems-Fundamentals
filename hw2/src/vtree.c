@@ -510,13 +510,18 @@ READ		tmp_entry;
 			down(path);
 	}
 	else {
-		if (is_directory(path)) return;
-
+		if (is_directory(path)) {
+			/*Changed from only return to this*/
+			inodes++;
+			sizes += K((stb.st_blocks)*512);
+			return;
+		}
 		    /* Don't do it again if we've already done it once. */
 
 		if ( (h_enter(stb.st_dev, stb.st_ino) == OLD) && (!dupl) )
 			return;
 		inodes++;
+
 		/*sizes+= K(stb.st_size);*/
 		sizes += K((stb.st_blocks)*512);
 	}
