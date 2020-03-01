@@ -147,11 +147,9 @@ char *lastfield(char *p, int c);
 char *lastfield(char *p, int c)
 #else
 char *lastfield(p, c)
-char *p;
-int c;
+char *p;	/* Null-terminated string to scan */
+int c;		/* Separator char, usually '/' */
 #endif
-	/* Null-terminated string to scan */
-	/* Separator char, usually '/' */
 {
 char *r;
 
@@ -286,13 +284,13 @@ READ		tmp_entry;
 
 
 #ifdef	MEMORY_BASED
-
+	head = NULL;
 	for (file = readdir(dp); file != NULL; file = readdir(dp)) {
 		if ((!quick && !visual ) ||
  		    ( strcmp(NAME(*file), "..") != SAME &&
 		     strcmp(NAME(*file), ".") != SAME &&
 		     chk_4_dir(NAME(*file)) ) ) {
-			tmp_RD = (struct RD_list *) malloc(sizeof(struct RD_list *));
+			tmp_RD = (struct RD_list *) malloc(sizeof(struct RD_list));
 			memcpy(&tmp_RD->entry, file, sizeof(tmp_entry));
 			tmp_RD->bptr = head;
 			tmp_RD->fptr = NULL;
@@ -477,14 +475,14 @@ READ		tmp_entry;
 
 #ifdef LSTAT
 	if (sw_follow_links)
-		stat(path, &stb);	/* follows symbolic links */
+		stat(path, &stb);	/* follows symbolic links */ /*Look at man 2 stat*/
 	else
 		lstat(path, &stb);	/* doesn't follow symbolic links */
 #else
 	stat(path, &stb);
 #endif
 
-	if ((stb.st_mode & S_IFMT) == S_IFDIR)
+	if ((stb.st_mode & S_IFMT) == S_IFDIR) /*Look at man 7 inode for masking*/
 		return TRUE;
 	else return FALSE;
 } /* is_directory */
@@ -519,7 +517,8 @@ READ		tmp_entry;
 		if ( (h_enter(stb.st_dev, stb.st_ino) == OLD) && (!dupl) )
 			return;
 		inodes++;
-		sizes+= K(stb.st_size);
+		/*sizes+= K(stb.st_size);*/
+		sizes += K((stb.st_blocks)*512);
 	}
 } /* get_data */
 

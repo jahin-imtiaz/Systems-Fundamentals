@@ -46,5 +46,5 @@
 #endif
 
 #if (!defined(BSD) && !defined(SYS_V) && !defined(SYS_III) && !defined(SCO_XENIX) && !defined(LINUX))
-"This is an Error"
+/*fprintf(stderr, "%s\n", "This is an Error");*/
 #endif
