@@ -63,11 +63,11 @@
 #include "customize.h"
 #include "hash.h"
 
-#ifdef LINUX
 #include <unistd.h>
+#ifdef LINUX
 #include <stdlib.h>
-#endif
 #include <getopt.h>
+#endif
 
 #ifdef	SYS_III
 	#define	rewinddir(fp)	rewind(fp)
@@ -556,7 +556,7 @@ int	user_file_list_supplied = 0;
 	Program = *argv;		/* save our name for error messages */
 
     /* Pick up options from command line */
-
+#ifdef LINUX
 	static struct option long_options[] = {
 		{"duplicates",				 no_argument, NULL, 'd'},
 		{"floating-column-widths", 	 no_argument, NULL, 'f'},
@@ -576,7 +576,12 @@ int	user_file_list_supplied = 0;
 		{0,							 0,			  0,	 0}
 	};
 	int long_index = 0;
+#endif
+#ifndef LINUX
 	while ((option = getopt_long(argc, argv, "dfh:iostqvVl", long_options, &long_index)) != EOF) {
+#else
+	while ((option = getopt(argc, argv, "dfh:iostqvVl")) != EOF) {
+#endif
 		switch (option) {
 			case 'f':	floating = TRUE; break;
 			case 'h':	depth = atoi(optarg);
