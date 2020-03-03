@@ -100,37 +100,37 @@ void assert_no_valgrind_errors(int status) {
 /*
  * Tests the basic program operation, with the "quick display" option.
  */
-/*Test(base_suite, quick_test) {
+Test(base_suite, quick_test) {
     char *name = "quick_test";
     sprintf(program_options, "-q tests/rsrc/test_tree");
     int err = run_using_system(name, "", "");
     assert_normal_exit(err);
     assert_outfile_matches(name, NULL);
-}*/
+}
 
 /*
  * This test runs valgrind to check for the use of uninitialized variables.
  */
-/*Test(base_suite, valgrind_uninitialized_test) {
+Test(base_suite, valgrind_uninitialized_test) {
     char *name = "valgrind_uninitialized_test";
     sprintf(program_options, "-q tests/rsrc/test_tree");
     int err = run_using_system(name, "", "valgrind --leak-check=no --undef-value-errors=yes --error-exitcode=37");
     assert_no_valgrind_errors(err);
     assert_normal_exit(err);
     assert_outfile_matches(name, NULL);
-}*/
+}
 
 /*
  * This test runs valgrind to check for memory leaks.
  */
-/*Test(base_suite, valgrind_leak_test) {
+Test(base_suite, valgrind_leak_test) {
     char *name = "valgrind_leak_test";
     sprintf(program_options, "-q tests/rsrc/test_tree");
     int err = run_using_system(name, "", "valgrind --leak-check=full --error-exitcode=37");
     assert_no_valgrind_errors(err);
     assert_normal_exit(err);
     assert_outfile_matches(name, NULL);
-}*/
+}
 
 /*
  * When the "-o" flag is given, the program is supposed to sort the entries within
@@ -138,37 +138,37 @@ void assert_no_valgrind_errors(int status) {
  * they are printed out in the order in which they are stored in the directory,
  * which is somewhat indeterminate.
  */
-/*Test(base_suite, sort_test) {
+Test(base_suite, sort_test) {
     char *name = "sort_test";
     sprintf(program_options, "-o tests/rsrc/test_tree");
     int err = run_using_system(name, "", "");
     assert_normal_exit(err);
     assert_outfile_matches(name, NULL);
-}*/
+}
 
 /*
  * This test will fail unless long options have been implemented, as per the
  * assignment handout.
  */
-/*Test(base_suite, getopt_test) {
+Test(base_suite, getopt_test) {
     char *name = "getopt_test";
     sprintf(program_options, "--visual tests/rsrc/test_tree");
     int err = run_using_system(name, "", "");
     assert_normal_exit(err);
     assert_outfile_matches(name, "/home/student");
-}*/
+}
 
 /*
  * When the "-i" flag is enabled, the program counts "inodes".  There is one inode
  * for each distinct file or directory that is encountered.
  */
-/*Test(base_suite, inode_test) {
+Test(base_suite, inode_test) {
     char *name = "inode_test";
     sprintf(program_options, "-i tests/rsrc/test_tree");
     int err = run_using_system(name, "", "");
     assert_normal_exit(err);
     assert_outfile_matches(name, "/home/student");
-}*/
+}
 
 /*
  * This test sets up a test tree in which there are three "hard links" to the same file.
@@ -176,7 +176,7 @@ void assert_no_valgrind_errors(int status) {
  * space used multiple times.  With the "-d" flag, the duplicate checking is disabled,
  * so the space usage reported will be higher.
  */
-/*Test(base_suite, duplicates_test) {
+Test(base_suite, duplicates_test) {
     char *name = "duplicates_test";
     system("rm -fr tests/rsrc/dups; mkdir tests/rsrc/dups; echo foo > tests/rsrc/dups/foo; "
            "ln tests/rsrc/dups/foo tests/rsrc/dups/bar; ln tests/rsrc/dups/foo tests/rsrc/dups/mumble");
@@ -184,4 +184,4 @@ void assert_no_valgrind_errors(int status) {
     int err = run_using_system(name, "", "");
     assert_normal_exit(err);
     assert_outfile_matches(name, "");
-}*/
+}
