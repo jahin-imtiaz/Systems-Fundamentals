@@ -63,10 +63,11 @@
 #include "customize.h"
 #include "hash.h"
 
-#ifndef BSD
+#ifdef LINUX
 #include <unistd.h>
-#endif
 #include <stdlib.h>
+#endif
+#include <getopt.h>
 
 #ifdef	SYS_III
 	#define	rewinddir(fp)	rewind(fp)
@@ -133,18 +134,18 @@ long            total_sizes, sizes;	/* block count */
 char            topdir[NAMELEN];	/* our starting directory */
 
 #ifdef LINUX
-void get_data(char *path, int cont);
-int	is_directory(char *path);
-int	chk_4_dir(char *path);
-void down(char *subdir);
-char *lastfield(char *p, int c);
+static void get_data(char *path, int cont);
+static int	is_directory(char *path);
+static int	chk_4_dir(char *path);
+static void down(char *subdir);
+static char *lastfield(char *p, int c);
 #endif
 
 /*
 ** Find the last field of a string.
 */
 #ifdef LINUX
-char *lastfield(char *p, int c)
+static char *lastfield(char *p, int c)
 #else
 char *lastfield(p, c)
 char *p;	/* Null-terminated string to scan */
@@ -171,7 +172,7 @@ int	last_subdir = FALSE;	/* the visual display */
 
 
 #ifdef LINUX
-	void down(char *subdir)
+	static void down(char *subdir)
 #else
 void down(subdir)
 	char *subdir;
@@ -303,10 +304,11 @@ READ		tmp_entry;
 				/* screwy, inefficient, bubble sort	*/
 				/* but it works				*/
 	if (sort) {
+		tmp_RD = head;
 		while (tmp_RD) {
 			tmp1_RD = tmp_RD->fptr;
 			while (tmp1_RD) {
-				if (NAME(tmp_RD->entry) > NAME(tmp1_RD->entry)) {
+				if (strcmp(NAME(tmp_RD->entry), NAME(tmp1_RD->entry))==1) {
 					/* swap the two */
 					memcpy(&tmp_entry, &tmp_RD->entry, sizeof(tmp_entry));
 					memcpy(&tmp_RD->entry, &tmp1_RD->entry, sizeof(tmp_entry));
@@ -337,8 +339,7 @@ READ		tmp_entry;
 			if (strcmp(NAME(*file), "..") != SAME)
 				get_data(NAME(*file),FALSE);
 		}
-		inodes++; //count current directory as inode
-		sizes += K((stb.st_blocks)*512);  //count current directory size
+		/*inodes++; //count current directory as inode*/
 
 		if (cur_depth<depth) {
 			if (cnt_inodes) printf("   %d",inodes);
@@ -387,6 +388,7 @@ READ		tmp_entry;
 	while (tmp_RD) {
 		file = &tmp_RD->entry;
 		tmp_RD = tmp_RD->fptr;
+
 #else
 	for (file = readdir(dp); file != NULL; file = readdir(dp)) {
 #endif
@@ -415,9 +417,11 @@ READ		tmp_entry;
 #ifdef	MEMORY_BASED
 				/* free the allocated memory */
 	tmp_RD = head;
+	struct RD_list *tmpl;
 	while (tmp_RD) {
+		tmpl= tmp_RD->fptr;
 		free(tmp_RD);
-		tmp_RD = tmp_RD->fptr;
+		tmp_RD = tmpl;
 	}
 #endif
 
@@ -445,13 +449,13 @@ READ		tmp_entry;
 	cur_depth--;
 
 	chdir(cwd);			/* go back where we were */
-
+	closedir(dp);
 
 } /* down */
 
 
 #ifdef LINUX
-	int	chk_4_dir(char *path)
+	static int	chk_4_dir(char *path)
 #else
 	int	chk_4_dir(path)
 	char *path;
@@ -468,7 +472,7 @@ READ		tmp_entry;
 
 /* Is the specified path a directory ? */
 #ifdef LINUX
-	int	is_directory(char *path)
+	static int	is_directory(char *path)
 #else
 	int	is_directory(path)
 	char *path;
@@ -496,7 +500,7 @@ READ		tmp_entry;
   * directory, go down into it, and get the data from all files inside.
   */
 #ifdef LINUX
-	void get_data(char *path, int cont)
+	static void get_data(char *path, int cont)
 #else
 	get_data(path, cont)
 	char *path;
@@ -508,8 +512,11 @@ READ		tmp_entry;
 	int h_enter();
 	#endif
 	if (cont) {
-		if (is_directory(path))
+		if (is_directory(path)){
+			sizes += K((stb.st_blocks)*BLOCKSIZE);
+			inodes++; //count current directory as inode
 			down(path);
+		}
 	}
 	else {
 		if (is_directory(path)) {
@@ -522,7 +529,8 @@ READ		tmp_entry;
 		inodes++;
 
 		/*sizes+= K(stb.st_size);*/
-		sizes += K((stb.st_blocks)*512);
+		sizes += K((stb.st_blocks)*BLOCKSIZE);
+
 	}
 } /* get_data */
 
@@ -549,7 +557,26 @@ int	user_file_list_supplied = 0;
 
     /* Pick up options from command line */
 
-	while ((option = getopt(argc, argv, "dfh:iostqvV")) != EOF) {
+	static struct option long_options[] = {
+		{"duplicates",				 no_argument, NULL, 'd'},
+		{"floating-column-widths", 	 no_argument, NULL, 'f'},
+		{"height", 					 required_argument, NULL, 'h'},
+		{"inodes", 					 no_argument, NULL, 'i'},
+		#ifdef MEMORY_BASED
+		{"sort-directories", 		 no_argument, NULL, 'o'},
+		#endif
+		{"include-subdirectories", 	 no_argument, NULL, 's'},
+		{"totals", 					 no_argument, NULL, 't'},
+		{"quick-display",			 no_argument, NULL, 'q'},
+		{"visual-display",			 no_argument, NULL, 'v'},
+		{"version",					 no_argument, NULL, 'V'},
+		#ifdef LSTAT
+		{"no-follow-symlinks",		 no_argument, NULL, 'l'},
+		#endif
+		{0,							 0,			  0,	 0}
+	};
+	int long_index = 0;
+	while ((option = getopt_long(argc, argv, "dfh:iostqvVl", long_options, &long_index)) != EOF) {
 		switch (option) {
 			case 'f':	floating = TRUE; break;
 			case 'h':	depth = atoi(optarg);
@@ -565,7 +592,9 @@ int	user_file_list_supplied = 0;
 					break;
 			case 'i':	cnt_inodes = TRUE;
 					break;
+			#ifdef MEMORY_BASED
 			case 'o':	sort = TRUE; break;
+			#endif
 			case 's':	sum = TRUE;
 					break;
 			case 't':	sw_summary = TRUE;
@@ -579,21 +608,39 @@ int	user_file_list_supplied = 0;
 					break;
 			case 'V':	version++;
 					break;
+			#ifdef LSTAT
+			case 'l':
+					sw_follow_links =0;
+					break;
+			#endif
 			default:	err = TRUE;
 		}
 		if (err) {
-			fprintf(stderr,"%s: [ -d ] [ -h # ] [ -i ] [ -o ] [ -s ] [ -q ] [ -v ] [ -V ]\n",Program);
+			#if (defined(MEMORY_BASED) && defined(LSTAT))
+			fprintf(stderr,"%s: [ -d ] [ -h # ] [ -i ] [ -o ] [ -s ] [ -q ] [ -v ] [ -V ] [ -l ]\n",Program);
+			#elif defined(MEMORY_BASED)
+			fprintf(stderr,"%s: [ -d ] [ -h # ] [ -i ] [ -o] [ -s ] [ -q ] [ -v ] [ -V ]\n",Program);
+			#elif defined(LSTAT)
+			fprintf(stderr,"%s: [ -d ] [ -h # ] [ -i ] [ -s ] [ -q ] [ -v ] [ -V ] [ -l ]\n",Program);
+			#else
+			fprintf(stderr,"%s: [ -d ] [ -h # ] [ -i ] [ -s ] [ -q ] [ -v ] [ -V ]\n",Program);
+			#endif
 			fprintf(stderr,"	-d	count duplicate inodes\n");
 			fprintf(stderr,"	-f	floating column widths\n");
 			fprintf(stderr,"	-h #	height of tree to look at\n");
 			fprintf(stderr,"	-i	count inodes\n");
+			#ifdef MEMORY_BASED
 			fprintf(stderr,"	-o	sort directories before processing\n");
+			#endif
 			fprintf(stderr,"	-s	include subdirectories not shown due to -h option\n");
 			fprintf(stderr,"	-t	totals at the end\n");
 			fprintf(stderr,"	-q	quick display, no counts\n");
 			fprintf(stderr,"	-v	visual display\n");
 			fprintf(stderr,"	-V	show current version\n");
 			fprintf(stderr,"		(2 Vs shows specified options)\n");
+			#ifdef LSTAT
+			fprintf(stderr,"	-l	don't follow symbolic links\n");
+			#endif
 			exit(-1);
 		}
 
@@ -654,7 +701,7 @@ int	user_file_list_supplied = 0;
 
 	if (sw_summary) {
 		printf("\n\nTotal space used: %ld\n",total_sizes);
-		if (cnt_inodes) printf("Total inodes: %d\n",inodes);
+		if (cnt_inodes) printf("Total inodes: %d\n",total_inodes);
 	}
 
 #ifdef HSTATS
