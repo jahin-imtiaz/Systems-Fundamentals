@@ -308,7 +308,7 @@ READ		tmp_entry;
 		while (tmp_RD) {
 			tmp1_RD = tmp_RD->fptr;
 			while (tmp1_RD) {
-				if (strcmp(NAME(tmp_RD->entry), NAME(tmp1_RD->entry))==1) {
+				if (strcmp(NAME(tmp_RD->entry), NAME(tmp1_RD->entry))>0) {
 					/* swap the two */
 					memcpy(&tmp_entry, &tmp_RD->entry, sizeof(tmp_entry));
 					memcpy(&tmp_RD->entry, &tmp1_RD->entry, sizeof(tmp_entry));
@@ -615,7 +615,7 @@ int	user_file_list_supplied = 0;
 					break;
 			#ifdef LSTAT
 			case 'l':
-					sw_follow_links =0;
+					sw_follow_links =FALSE;
 					break;
 			#endif
 			default:	err = TRUE;
