@@ -577,7 +577,7 @@ int	user_file_list_supplied = 0;
 	};
 	int long_index = 0;
 #endif
-#ifndef LINUX
+#ifdef LINUX
 	while ((option = getopt_long(argc, argv, "dfh:iostqvVl", long_options, &long_index)) != EOF) {
 #else
 	while ((option = getopt(argc, argv, "dfh:iostqvVl")) != EOF) {

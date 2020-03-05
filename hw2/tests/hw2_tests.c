@@ -174,7 +174,7 @@ Test(base_suite, inode_test) {
  * This test sets up a test tree in which there are three "hard links" to the same file.
  * Normally, the program will detect these using its hash table and avoid counting the
  * space used multiple times.  With the "-d" flag, the duplicate checking is disabled,
- * so the space usage reported will be higher.
+ * so the space usage reported will be higher..
  */
 Test(base_suite, duplicates_test) {
     char *name = "duplicates_test";
