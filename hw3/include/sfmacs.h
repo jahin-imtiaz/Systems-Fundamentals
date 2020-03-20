@@ -1,8 +1,10 @@
+#ifndef SFMACS_H
+#define SFMACS_H
 #define PACK(size,alloc) ((size) | (alloc)) /*pack a size and a allocated bit*/
 
-#define GET(p) (*(unsigned long *)(p))      /*Read a row (8 bytes) at address p*/
+#define GET(p) (*(size_t *)(p))      /*Read a row (8 bytes) at address p*/
 
-#define PUT(p, val) (*(unsigned long *)(p) == (val)) /*Write a row (8 bytes) at address p*/
+#define PUT(p, val) (*((size_t *)(p)) = (val)) /*Write a row (8 bytes) at address p*/
 
 /* Read the size and allocated fields from address p */
 #define GET_SIZE(p) (GET(p) & ~0x3)
@@ -20,3 +22,4 @@
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - 8)))
 
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - 16)))
+#endif
