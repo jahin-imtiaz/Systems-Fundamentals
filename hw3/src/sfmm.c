@@ -15,6 +15,7 @@
 size_t get_required_block_bize(size_t size);
 void set_heap();
 void add_wilderness_block(sf_block *block);
+void add_free_block(sf_block *block);
 void free_list_init();
 sf_block *find_fit(size_t size);
 void split_block(sf_block *bp, size_t size);
@@ -120,16 +121,6 @@ void free_list_init(){
     }
 }
 
-//add the wilderness block in the free list
-void add_wilderness_block(sf_block *block){
-    (*block).body.links.next = sf_free_list_heads[NUM_FREE_LISTS-1].body.links.next;
-
-    (*block).body.links.prev = &sf_free_list_heads[NUM_FREE_LISTS-1];
-
-    (*(*block).body.links.next).body.links.prev = block;
-
-    sf_free_list_heads[NUM_FREE_LISTS-1].body.links.next = block;
-}
 
 //find free block in the list
 //returns a pointer to the block
@@ -145,7 +136,12 @@ sf_block *find_fit(size_t size){
             //check the size of this block and return the block if it is equal
             //or bigger than the required size
             if(size <= GET_SIZE(((char *)(ptr->body.links.next)) + 8)){
-                return ptr->body.links.next;
+
+                //remove the block from the list;
+                sf_block *tmp = (ptr->body.links.next);
+                (tmp->body.links.prev)->body.links.next = tmp->body.links.next;
+                (tmp->body.links.next)->body.links.prev = tmp->body.links.prev;
+                return tmp;
             }
             ptr = ptr->body.links.next ;
         }
@@ -156,8 +152,44 @@ sf_block *find_fit(size_t size){
 
 void split_block(sf_block *bp, size_t size){
 
-}
-//add a free block in the free list
-void add_free_block(){
+    size_t bsize = GET_SIZE((char *)bp + 8);
 
+    if((bsize-size) >= 64){ //split
+        PUT((char *)bp + 8, PACK(size, 1)); //set allocator bit for first block header
+
+        PUT(((char *)bp + (size+8)), PACK(bsize-size, 2)); //set header for new block with alloc bit(0) and prev_alloc bit(1)
+
+        char *tmp = ((char *)bp +bsize);  //move pointer to the footer of the new block
+
+        PUT(tmp, PACK(bsize-size, 2));    //set footer with same value
+
+        *((size_t *)(tmp + 8)) = GET_SIZE(tmp +8) & ~2;    //change prev_alloc bit for next block in heap to 0
+        //insert new free block in the free list
+        tmp = (char *)bp + size;//move tmp pointer to point to the new block
+        add_free_block((sf_block *)tmp);
+    }
+    else{//don't split
+        PUT((char *) bp + 8, PACK(bsize, 1));       //change header allocator bit
+        PUT(((char *)bp + (bsize+8)), PACK(GET_SIZE(((char *)bp + (bsize+8))), 2));//change prev_alloc bit for next block in heap
+    }
+
+}
+
+//add the wilderness block in the free list
+void add_wilderness_block(sf_block *block){
+    (*block).body.links.next = sf_free_list_heads[NUM_FREE_LISTS-1].body.links.next;
+
+    (*block).body.links.prev = &sf_free_list_heads[NUM_FREE_LISTS-1];
+
+    (*(*block).body.links.next).body.links.prev = block;
+
+    sf_free_list_heads[NUM_FREE_LISTS-1].body.links.next = block;
+}
+
+
+//add a free block in the free list
+void add_free_block(sf_block *block){
+    //get the size of the block
+    //find the appropriate size class for that block
+    //insert it in the list
 }
