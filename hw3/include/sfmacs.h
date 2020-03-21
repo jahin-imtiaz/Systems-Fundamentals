@@ -6,12 +6,16 @@
 
 #define PUT(p, val) (*((size_t *)(p)) = (val)) /*Write a row (8 bytes) at address p*/
 
-/* Read the size and allocated fields from address p */
+/* Read and write the size and allocated fields from address p */
 #define GET_SIZE(p) (GET(p) & ~0x3)
 
 #define GET_ALLOC(p) (GET(p) & 0x1)
 
 #define GET_PREV_ALLOC(p) (GET(p) & 0x2)
+
+#define SET_ALLOC_ZERO(p) (GET(p) & ~1)
+
+#define SET_PREV_ALLOC_ZERO(p) (GET(p) & ~2)
 
 /* Given block ptr bp (payload start point), compute address of its header and footer */
 #define HDRP(bp) ((char *)(bp) - 8)

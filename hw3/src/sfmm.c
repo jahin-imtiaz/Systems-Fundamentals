@@ -74,7 +74,13 @@ void *sf_malloc(size_t size) {
     }
 
     //No block found. extend memory and place the block
-
+        //call mem_grow
+        //coalesce the new memory
+        //check if memory is full
+        //if not, check if the size is enough
+        //if not, do this while size is not enough
+        //split the block
+        //put the remaining block in the wilderness block
 }
 
 void sf_free(void *ptr) {
@@ -180,7 +186,7 @@ void split_block(sf_block *bp, size_t size){
 
         PUT(tmp, PACK(bsize-size, 2));    //set footer with same value
 
-        *((size_t *)(tmp + 8)) = GET_SIZE(tmp +8) & ~2;    //change prev_alloc bit for next block in heap to 0
+        *((size_t *)(tmp + 8)) = SET_PREV_ALLOC_ZERO(tmp+8);    //change prev_alloc bit for next block in heap to 0
         //insert new free block in the free list
         tmp = (char *)bp + size;//move tmp pointer to point to the new block
         add_free_block((sf_block *)tmp);
@@ -237,5 +243,82 @@ int find_free_list_index(size_t msize){
         //for all block that are too big to fit into any size class, put them in
         //second to last list of the free list
         return NUM_FREE_LISTS-2;
+    }
+}
+
+sf_block *coalesce(sf_block *block){
+
+    size_t size = GET_SIZE((char *)block + 8);
+    size_t prev_alloc = GET_PREV_ALLOC((char *)block + 8);
+    size_t next_alloc = GET_ALLOC((char *)block + (size + 8));
+
+    if(prev_alloc && next_alloc){               //prev and next block is allocated
+        return block;
+    }
+    else if(prev_alloc && !next_alloc){          //prev block is allocated and next block is free
+
+        //remove next block from the free list
+        sf_block *tmp = (sf_block *)((char *)block + size);
+        (tmp->body.links.prev)->body.links.next = tmp->body.links.next;
+        (tmp->body.links.next)->body.links.prev = tmp->body.links.prev;
+
+        //update the new size
+        size += GET_SIZE((char *)tmp +8);
+
+        //update header for the current block
+        PUT((char *)block + 8, PACK(size,2)); //set prev alloc bit to 1
+        *((size_t *) ((char *)block + 8)) = SET_ALLOC_ZERO((char*)block +8);//set alloc bit to 0
+
+        //update footer for the current block
+        PUT((char *)block + GET_SIZE((char *)block +8) , PACK(size, 2));
+        *((size_t *) ((char *)block +GET_SIZE((char *)block +8))) = SET_ALLOC_ZERO((char *)block + GET_SIZE((char *)block +8));
+
+        return block;
+
+    }
+    else if(!prev_alloc && next_alloc){          //prev block is free and next block is allocated
+
+        //get prev blocks size
+        size_t psize = GET_SIZE((char *)block);
+
+        //remove prev block from the free list
+        sf_block *tmp = (sf_block *)((char *)block - psize);
+        (tmp->body.links.prev)->body.links.next = tmp->body.links.next;
+        (tmp->body.links.next)->body.links.prev = tmp->body.links.prev;
+
+        //update the new header
+        *((size_t *)((char *)tmp +8)) = *((size_t *)((char *)tmp +8)) + size;
+
+        //update footer for the current block
+        *((size_t *)((char *)block + size)) = *((size_t *)((char *)tmp +8)) + size;
+
+        return tmp;
+
+    }
+    else{                                        //prev and next block is free
+
+        //remove next block from the list
+        sf_block *tmp_next = (sf_block *)((char *)block + size);
+        (tmp_next->body.links.prev)->body.links.next = tmp_next->body.links.next;
+        (tmp_next->body.links.next)->body.links.prev = tmp_next->body.links.prev;
+
+        //get next block size
+        size_t nsize = GET_SIZE((char *)tmp_next +8);
+        //get prev blocks size
+        size_t psize = GET_SIZE((char *)block);
+
+        //remove prev block from the list
+        sf_block *tmp_prev = (sf_block *)((char *)block - psize);
+        (tmp_prev->body.links.prev)->body.links.next = tmp_prev->body.links.next;
+        (tmp_prev->body.links.next)->body.links.prev = tmp_prev->body.links.prev;
+
+        //update the header for the prev block
+        *((size_t *)((char *)tmp_prev +8)) = *((size_t *)((char *)tmp_prev +8)) + size + nsize;
+
+        //update the footer for the next block
+        *((size_t *)((char *)tmp_next + nsize)) = *((size_t *)((char *)tmp_prev +8)) + size + nsize;
+
+        return tmp_prev;
+
     }
 }
