@@ -74,7 +74,7 @@ void *sf_malloc(size_t size) {
     if((bp = find_fit(blocksize)) != NULL){
 
         split_block(bp, blocksize);     //split block if free block is too big
-        return (*bp).body.payload;      //return pointer to the payload section.
+        return (void *)(*bp).body.payload;      //return pointer to the payload section.
     }
 
     //No block found. extend memory and place the block
@@ -101,7 +101,7 @@ void *sf_malloc(size_t size) {
         if((bp = find_fit(blocksize)) != NULL){
 
             split_block(bp, blocksize);     //split block if free block is too big
-            return (*bp).body.payload;      //return pointer to the payload section.
+            return (void *)(*bp).body.payload;      //return pointer to the payload section.
         }
 
     }
@@ -134,7 +134,46 @@ void sf_free(void *ptr) {       //ptr is pointer to the payload section or next 
 }
 
 void *sf_realloc(void *ptr, size_t size) {
-    return NULL;
+    if(!valid_pointer(ptr)){        //if invalid pointer is givevn, set sf_errno and return NULL
+        sf_errno = EINVAL;
+        return NULL;
+    }
+
+    if(size == 0){          //if size is 0, free the block and return NULL
+        sf_free(ptr);
+        return NULL;
+    }
+
+    size_t current_size = GET_SIZE(HDRP(ptr));
+    if(size > current_size){       //reallocating to a larger size
+
+        //call sf_malloc to obtain a larger block
+        //if sf_malloc returns NULL, sf_realloc must return NULL
+        void *newPtr;
+        if((newPtr = sf_malloc(size)) == NULL){
+
+            return NULL;
+
+        }
+
+        memcpy(newPtr, ptr, (current_size - 8));    //call memcpy to copy payload datas
+
+        sf_free(ptr);       //sf_free is the previous block
+
+        return newPtr;      //return the new block
+
+    }
+    else if(size < current_size){   //reallocating to a smaller size
+
+        split_wilderness_flag =0;   //to call add_free_block() if splitted
+        split_block((sf_block *)HDRP(ptr), size);
+        return ptr;
+    }
+    else{                   //reallocating to a same size
+
+        return ptr;
+    }
+
 }
 
 void *sf_memalign(size_t size, size_t align) {
