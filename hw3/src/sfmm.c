@@ -23,6 +23,7 @@ void split_block(sf_block *bp, size_t size);
 int find_free_list_index(size_t msize);
 sf_block *coalesce(sf_block *block);
 int valid_pointer(void *ptr);
+int is_wilderness(sf_block *block);
 
 char *my_heap;
 char *prologue_header;
@@ -111,6 +112,20 @@ void *sf_malloc(size_t size) {
 void sf_free(void *ptr) {       //ptr is pointer to the payload section or next address after header
     if(valid_pointer(ptr)){
 
+        PUT(HDRP(ptr), SET_ALLOC_ZERO(HDRP(ptr)));  //update header (set alloc bit to 0)
+
+        PUT(FTRP(ptr), SET_ALLOC_ZERO(HDRP(ptr)));  //update footer (set alloc bit to 0)
+
+        sf_block *coalesced_block =  coalesce((sf_block *)((char *)ptr - 16));   //coalesce the block
+
+        //check if its the wilderness block
+        if(is_wilderness(coalesced_block)){      //if yes, add it to the wilderness list
+            add_wilderness_block(coalesced_block);
+        }
+        else{   //if no, update the header of the next block (set prev_alloc bit to 0). Then, add it to an appropriate size list
+            PUT(HDRP(NEXT_BLKP((char *)coalesced_block + 16)), SET_PREV_ALLOC_ZERO(HDRP(NEXT_BLKP((char *)coalesced_block + 16))));
+            add_free_block(coalesced_block);
+        }
     }
     else{
         abort();
@@ -122,7 +137,7 @@ void *sf_realloc(void *ptr, size_t size) {
     return NULL;
 }
 
-void *sf_memalign(size_t align, size_t size) {
+void *sf_memalign(size_t size, size_t align) {
     return NULL;
 }
 
@@ -160,10 +175,7 @@ void set_heap(){
 void free_list_heads_init(){
     int i;
     for(i = 0; i < NUM_FREE_LISTS; i++){
-        /*sf_block sentinel;
-        sentinel.body.links.next = &sentinel;
-        sentinel.body.links.prev = &sentinel;
-        sf_free_list_heads[i] =sentinel;*/
+
         sf_free_list_heads[i].body.links.next = &sf_free_list_heads[i];
         sf_free_list_heads[i].body.links.prev = &sf_free_list_heads[i];
     }
@@ -378,5 +390,45 @@ sf_block *coalesce(sf_block *block){
 
 //return 1 if valid pointer, return 0 otherwise
 int valid_pointer(void *ptr){
-    return 0;
+    if(ptr == NULL){    //pointer is NULL
+        return 0;
+    }
+
+    size_t alloc = GET_ALLOC(HDRP(ptr));
+    if(alloc == 0){     //alloc bit 0
+        return 0;
+    }
+
+    //The prev_alloc field is 0, indicating that the previous block is free but the alloc field of the previous block header is not 0.*/
+    size_t prev_alloc = GET_PREV_ALLOC(HDRP(ptr));
+    if(prev_alloc == 0){
+        size_t alloc2 = GET_ALLOC(HDRP(PREV_BLKP(ptr)));
+        if(alloc2 != 0){
+            return 0;
+        }
+    }
+
+    //The header of the block is before the end of the prologue, or the footer of the block is after the beginning of the epilogue.
+    if(!((HDRP(ptr) - (prologue_header + 64)) >=0)){
+        return 0;
+    }
+    if(!((epilogue_header - (FTRP(ptr) + 8)) >=0)){
+        return 0;
+    }
+
+    //the pointer is not aligned to a 64 byte boundary
+    if((unsigned long)ptr % 64 != 0){
+        return 0;
+    }
+    return 1;
+}
+
+//check if the given block is the wilderness block
+int is_wilderness(sf_block *block){
+    size_t size = GET_SIZE(HDRP(NEXT_BLKP((char *)block + 16)));    //size of the next block
+    size_t alloc= GET_ALLOC(HDRP(NEXT_BLKP((char *)block + 16)));       //alloc bit of the next block
+    if(size && alloc){
+        return 1;
+    }
+    else return 0;
 }
