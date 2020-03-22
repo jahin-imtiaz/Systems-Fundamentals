@@ -166,7 +166,8 @@ void *sf_realloc(void *ptr, size_t size) {
     else if(size < current_size){   //reallocating to a smaller size
 
         split_wilderness_flag =0;   //to call add_free_block() if splitted
-        split_block((sf_block *)HDRP(ptr), size);
+        size_t required_size = get_required_block_bize(size);
+        split_block((sf_block *)(HDRP(ptr)-8), required_size);
         return ptr;
     }
     else{                   //reallocating to a same size

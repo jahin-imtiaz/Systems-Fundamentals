@@ -11,6 +11,8 @@ int main(int argc, char const *argv[]) {
 
     printf("%f\n", *ptr);
 
+    sf_realloc(ptr, sizeof(int));
+
     sf_free(ptr);
 
     sf_mem_fini();
