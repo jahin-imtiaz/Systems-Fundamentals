@@ -114,7 +114,7 @@ void sf_free(void *ptr) {       //ptr is pointer to the payload section or next 
 
         PUT(HDRP(ptr), SET_ALLOC_ZERO(HDRP(ptr)));  //update header (set alloc bit to 0)
 
-        PUT(FTRP(ptr), SET_ALLOC_ZERO(HDRP(ptr)));  //update footer (set alloc bit to 0)
+        PUT(FTRP(ptr), GET(HDRP(ptr)));  //update footer (set alloc bit to 0)
 
         sf_block *coalesced_block =  coalesce((sf_block *)((char *)ptr - 16));   //coalesce the block
 
@@ -122,8 +122,7 @@ void sf_free(void *ptr) {       //ptr is pointer to the payload section or next 
         if(is_wilderness(coalesced_block)){      //if yes, add it to the wilderness list
             add_wilderness_block(coalesced_block);
         }
-        else{   //if no, update the header of the next block (set prev_alloc bit to 0). Then, add it to an appropriate size list
-            PUT(HDRP(NEXT_BLKP((char *)coalesced_block + 16)), SET_PREV_ALLOC_ZERO(HDRP(NEXT_BLKP((char *)coalesced_block + 16))));
+        else{   //if no, add it to an appropriate size list
             add_free_block(coalesced_block);
         }
     }
@@ -363,6 +362,9 @@ sf_block *coalesce(sf_block *block){
     size_t next_alloc = GET_ALLOC((char *)block + (size + 8));
 
     if(prev_alloc && next_alloc){               //prev and next block is allocated
+
+        //set prev_alloc bit of next block to 0
+        PUT(HDRP(NEXT_BLKP((char *)block + 16)), SET_PREV_ALLOC_ZERO(HDRP(NEXT_BLKP((char *)block + 16))) );
         return block;
     }
     else if(prev_alloc && !next_alloc){          //prev block is allocated and next block is free
@@ -377,6 +379,9 @@ sf_block *coalesce(sf_block *block){
 
         //update footer for the current block
         *((size_t *) ((char *)block +GET_SIZE((char *)block +8))) = *((size_t *) ((char *)block + 8));
+
+        //set prev_alloc bit of next block to 0
+        PUT(HDRP(NEXT_BLKP((char *)block + 16)), SET_PREV_ALLOC_ZERO(HDRP(NEXT_BLKP((char *)block + 16))) );
 
         return block;
 
@@ -396,6 +401,9 @@ sf_block *coalesce(sf_block *block){
 
         //update footer for the current block
         *((size_t *)((char *)block + size)) = *((size_t *)((char *)tmp +8));
+
+        //set prev_alloc bit of next block to 0
+        PUT(HDRP(NEXT_BLKP((char *)tmp + 16)), SET_PREV_ALLOC_ZERO(HDRP(NEXT_BLKP((char *)tmp + 16))) );
 
         return tmp;
 
@@ -420,8 +428,11 @@ sf_block *coalesce(sf_block *block){
         //update the header for the prev block
         *((size_t *)((char *)tmp_prev +8)) = *((size_t *)((char *)tmp_prev +8)) + size + nsize;
 
-        //update the footer for the next block
+        //update the footer of the new block
         *((size_t *)((char *)tmp_next + nsize)) = *((size_t *)((char *)tmp_prev +8));
+
+        //set prev_alloc bit of next block to 0
+        PUT(HDRP(NEXT_BLKP((char *)tmp_next + 16)), SET_PREV_ALLOC_ZERO(HDRP(NEXT_BLKP((char *)tmp_next + 16))) );
 
         return tmp_prev;
 
