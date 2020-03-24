@@ -205,4 +205,72 @@ Test(sf_memsuite_student, realloc_smaller_block_free_block, .init = sf_mem_init,
 //DO NOT DELETE THESE COMMENTS
 //############################################
 
+Test(sf_memsuite_student, free_invalid_pointer1, .init = sf_mem_init, .fini = sf_mem_fini, .signal = SIGABRT) {
+	//Freeing invalid pointers should abort the program with signal SIGABRT
+	void *w = NULL;	//pointer is NULL
+	sf_free(w);
+}
 
+Test(sf_memsuite_student, free_invalid_pointer2, .init = sf_mem_init, .fini = sf_mem_fini, .signal = SIGABRT) {
+	//Freeing invalid pointers should abort the program with signal SIGABRT
+	int a = 10;		//pointer was not allocated by sf_malloc
+	void *w = &a;
+	sf_free(w);
+}
+
+Test(sf_memsuite_student, free_invalid_pointer3, .init = sf_mem_init, .fini = sf_mem_fini, .signal = SIGABRT) {
+	//Freeing invalid pointers should abort the program with signal SIGABRT
+	void *w = sf_malloc(sizeof(int));
+	sf_free((char *)w+1);	//pointer is not aligned with 64 byte boundary
+}
+
+Test(sf_memsuite_student, malloc_zero_size, .init = sf_mem_init, .fini = sf_mem_fini) {
+	//malloc of zero size should return NUll
+	sf_errno = 0;
+	void *x = sf_malloc(0);
+
+	cr_assert_null(x, "x is not NULL!");
+	assert_free_block_count(0, 1);
+	assert_free_block_count(3968, 1);
+	cr_assert(sf_errno == 0, "sf_errno is not zero!");
+}
+
+Test(sf_memsuite_student, free_coalesce_prev_and_next, .init = sf_mem_init, .fini = sf_mem_fini) {
+	sf_errno = 0;
+	void *w = sf_malloc(40);
+	void *x = sf_malloc(40);
+	void *y = sf_malloc(40);
+	/* void *z = */ sf_malloc(40);
+
+	sf_free(w);
+	sf_free(y);
+	sf_free(x);		//x should be coalesced with w and y
+
+	assert_free_block_count(0, 2);
+	assert_free_block_count(192, 1);
+	assert_free_block_count(3712, 1);
+	cr_assert(sf_errno == 0, "sf_errno is not zero!");
+}
+
+Test(sf_memsuite_student, memalign_invalid_align_requirement, .init = sf_mem_init, .fini = sf_mem_fini) {
+    sf_errno = 0;
+
+    void *w = sf_memalign(40, 68);		//68 is not a power of 2
+    cr_assert_null(w, "a is not NULL!");
+    cr_assert(sf_errno == EINVAL, "sf_errno is not EINVAL!");
+}
+
+Test(sf_memsuite_student, memalign_aligned_pointer, .init = sf_mem_init, .fini = sf_mem_fini) {
+	sf_errno = 0;
+	void *w = sf_memalign(40, 64);
+	void *x = sf_memalign(40, 256);
+	void *y = sf_memalign(40, 512);
+	void *z = sf_memalign(40, 1024);
+
+	//all these pointers should be aligned
+	cr_assert((unsigned long)w % 64 == 0,"Pointer is not aligned!");
+	cr_assert((unsigned long)x % 256 == 0,"Pointer is not aligned!");
+	cr_assert((unsigned long)y % 512 == 0,"Pointer is not aligned!");
+	cr_assert((unsigned long)z % 1024 == 0,"Pointer is not aligned!");
+
+}
