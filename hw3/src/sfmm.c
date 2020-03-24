@@ -25,6 +25,7 @@ sf_block *coalesce(sf_block *block);
 int valid_pointer(void *ptr);
 int is_wilderness(sf_block *block);
 int power_of_two(int num);
+unsigned long next_multiple(unsigned long ptr_address , size_t align);
 
 char *my_heap;
 char *prologue_header;
@@ -198,7 +199,46 @@ void *sf_memalign(size_t size, size_t align) {
         return NULL;
     }
 
+    void *malloc_ptr = sf_malloc(align+size+64);
+    size_t current_block_size = GET_SIZE(HDRP(malloc_ptr));
+    size_t current_prev_alloc = GET_PREV_ALLOC(HDRP(malloc_ptr));
+    void *newPtr;
 
+    //split from the front if necessary
+    if((unsigned long)malloc_ptr % align != 0){     //returned payload pointer was not aligned to align requirement
+
+        //which means payload pointer needs to be moved forward to meet the align requirement
+        size_t shift_amount = (next_multiple((unsigned long)malloc_ptr , align) - (unsigned long)malloc_ptr);
+
+        //update the new size of the prev header, alloc bit should be 0, keep the prev_alloc bit as it is
+        PUT(HDRP(malloc_ptr), PACK(shift_amount, current_prev_alloc));
+
+        //update the footer also, since its free now
+        PUT(FTRP(malloc_ptr), GET(HDRP(malloc_ptr)));
+
+        //update the header of the current block with new size(current_size - shift_amount), alloc bit 1, prev_alloc bit 0
+        PUT(HDRP(NEXT_BLKP(malloc_ptr)), PACK((current_block_size - shift_amount), 1));
+
+        newPtr = malloc_ptr;    //newPtr points to the free blocks payload
+        malloc_ptr = (char *)malloc_ptr + shift_amount;
+        //malloc_ptr is now aligned with the align requirement
+
+        //free the previous block. in order to use default sf_free(), make it look allocated first
+        PUT(HDRP(newPtr), PACK(GET((HDRP(newPtr))),1));
+        sf_free(newPtr);
+
+    }
+
+    //split from the end now
+    size_t required_size = get_required_block_bize(size);
+    split_block((sf_block *)((char *)malloc_ptr - 16), required_size);
+
+    return malloc_ptr;
+}
+
+//find next multiple of align requirement after ptr address
+unsigned long next_multiple(unsigned long ptr_address , size_t align){
+    return ((ptr_address+(align-1))/align)*align;
 }
 
 //calculates the required block size
