@@ -24,12 +24,12 @@ int find_free_list_index(size_t msize);
 sf_block *coalesce(sf_block *block);
 int valid_pointer(void *ptr);
 int is_wilderness(sf_block *block);
+int power_of_two(int num);
 
 char *my_heap;
 char *prologue_header;
 char *epilogue_header;
 size_t sf_free_list_helper[NUM_FREE_LISTS];
-int split_wilderness_flag = 0;
 
 void *sf_malloc(size_t size) {
     sf_block *bp;
@@ -79,11 +79,11 @@ void *sf_malloc(size_t size) {
 
     //No block found. extend memory and place the block
     char *prev_end_point;
+    int c= 0;
     while((prev_end_point = (char *)sf_mem_grow()) != NULL){
-
         //move the epilogue header
-        epilogue_header = (char *)sf_mem_end - 8;
-        *(size_t *)epilogue_header = *(size_t *)(prev_end_point - 8);
+        epilogue_header = (char *)sf_mem_end() - 8;
+        *((size_t *)epilogue_header) = *((size_t *)(prev_end_point - 8));
 
         //create a new block from the remaining
         int s = epilogue_header - (prev_end_point -8);          //size is the number of bytes in between prologue footer and epiloge header
@@ -103,6 +103,7 @@ void *sf_malloc(size_t size) {
             split_block(bp, blocksize);     //split block if free block is too big
             return (void *)(*bp).body.payload;      //return pointer to the payload section.
         }
+        c++;
 
     }
     return NULL;
@@ -142,9 +143,9 @@ void *sf_realloc(void *ptr, size_t size) {
         sf_free(ptr);
         return NULL;
     }
-
+    size_t required_size = get_required_block_bize(size);
     size_t current_size = GET_SIZE(HDRP(ptr));
-    if(size > current_size){       //reallocating to a larger size
+    if(required_size > current_size){       //reallocating to a larger size
 
         //call sf_malloc to obtain a larger block
         //if sf_malloc returns NULL, sf_realloc must return NULL
@@ -162,10 +163,8 @@ void *sf_realloc(void *ptr, size_t size) {
         return newPtr;      //return the new block
 
     }
-    else if(size < current_size){   //reallocating to a smaller size
+    else if(required_size < current_size){   //reallocating to a smaller size
 
-        split_wilderness_flag =0;   //to call add_free_block() if splitted
-        size_t required_size = get_required_block_bize(size);
         split_block((sf_block *)(HDRP(ptr)-8), required_size);
         return ptr;
     }
@@ -177,7 +176,29 @@ void *sf_realloc(void *ptr, size_t size) {
 }
 
 void *sf_memalign(size_t size, size_t align) {
-    return NULL;
+
+    //verify the alignment
+    if(align < 64){             //align is not atleast 64
+        sf_errno = EINVAL;
+        return NULL;
+    }
+
+    if(!power_of_two(align)){   //align is not a power of two
+        sf_errno = EINVAL;
+        return NULL;
+    }
+
+    //verify the size
+    if((int) size == 0){
+        return NULL;
+    }
+
+    //check if the size is too big to allocate (due to limited MAX blocksize)
+    if(size > (ULONG_MAX -8)){
+        return NULL;
+    }
+
+
 }
 
 //calculates the required block size
@@ -250,11 +271,6 @@ sf_block *find_fit(size_t size){
             //or bigger than the required size
             if(size <= GET_SIZE((char *)ptr + 8)){
 
-                //set the split flag if it is the wilderness list
-                if(i == NUM_FREE_LISTS-1){
-                    split_wilderness_flag = 1;
-                }
-
                 //remove the block from the list;
                 (ptr->body.links.prev)->body.links.next = ptr->body.links.next;
                 (ptr->body.links.next)->body.links.prev = ptr->body.links.prev;
@@ -282,14 +298,17 @@ void split_block(sf_block *bp, size_t size){
 
         *(size_t *)tmp = *((size_t *)((char *)bp + (size+8)));  //set footer with same value
 
-        //insert new free block in the free list
         tmp = (char *)bp + size;        //move tmp pointer to point to the new block
-        if(split_wilderness_flag == 1){
-            split_wilderness_flag = 0;
-            add_wilderness_block((sf_block *)tmp);
+
+        //insert new free block in the free list
+        sf_block *coalesced_block = coalesce((sf_block *)tmp);      //coalesce if possible
+
+        //check if its the wilderness block
+        if(is_wilderness(coalesced_block)){      //if yes, add it to the wilderness list
+            add_wilderness_block(coalesced_block);
         }
-        else{
-            add_free_block((sf_block *)tmp);
+        else{   //if no, add it to an appropriate size list
+            add_free_block(coalesced_block);
         }
     }
     else{//don't split
@@ -365,6 +384,13 @@ sf_block *coalesce(sf_block *block){
 
         //set prev_alloc bit of next block to 0
         PUT(HDRP(NEXT_BLKP((char *)block + 16)), SET_PREV_ALLOC_ZERO(HDRP(NEXT_BLKP((char *)block + 16))) );
+
+        //check if the next block is free. if yes, change its footer too
+        size_t alloc_nblock = GET_ALLOC(HDRP(NEXT_BLKP((char *)block + 16)));    //alloc bit of next block
+        if(alloc_nblock == 0){
+            PUT(FTRP(NEXT_BLKP((char *)block + 16)), GET(HDRP(NEXT_BLKP((char *)block + 16))));
+        }
+
         return block;
     }
     else if(prev_alloc && !next_alloc){          //prev block is allocated and next block is free
@@ -382,6 +408,12 @@ sf_block *coalesce(sf_block *block){
 
         //set prev_alloc bit of next block to 0
         PUT(HDRP(NEXT_BLKP((char *)block + 16)), SET_PREV_ALLOC_ZERO(HDRP(NEXT_BLKP((char *)block + 16))) );
+
+        //check if the next block is free. if yes, change its footer too
+        size_t alloc_nblock = GET_ALLOC(HDRP(NEXT_BLKP((char *)block + 16)));    //alloc bit of next block
+        if(alloc_nblock == 0){
+            PUT(FTRP(NEXT_BLKP((char *)block + 16)), GET(HDRP(NEXT_BLKP((char *)block + 16))));
+        }
 
         return block;
 
@@ -404,6 +436,12 @@ sf_block *coalesce(sf_block *block){
 
         //set prev_alloc bit of next block to 0
         PUT(HDRP(NEXT_BLKP((char *)tmp + 16)), SET_PREV_ALLOC_ZERO(HDRP(NEXT_BLKP((char *)tmp + 16))) );
+
+        //check if the next block is free. if yes, change its footer too
+        size_t alloc_nblock = GET_ALLOC(HDRP(NEXT_BLKP((char *)tmp + 16)));    //alloc bit of next block
+        if(alloc_nblock == 0){
+            PUT(FTRP(NEXT_BLKP((char *)tmp + 16)), GET(HDRP(NEXT_BLKP((char *)tmp + 16))));
+        }
 
         return tmp;
 
@@ -433,6 +471,12 @@ sf_block *coalesce(sf_block *block){
 
         //set prev_alloc bit of next block to 0
         PUT(HDRP(NEXT_BLKP((char *)tmp_next + 16)), SET_PREV_ALLOC_ZERO(HDRP(NEXT_BLKP((char *)tmp_next + 16))) );
+
+        //check if the next block is free. if yes, change its footer too
+        size_t alloc_nblock = GET_ALLOC(HDRP(NEXT_BLKP((char *)tmp_next + 16)));    //alloc bit of next block
+        if(alloc_nblock == 0){
+            PUT(FTRP(NEXT_BLKP((char *)tmp_next + 16)), GET(HDRP(NEXT_BLKP((char *)tmp_next + 16))));
+        }
 
         return tmp_prev;
 
@@ -478,8 +522,23 @@ int valid_pointer(void *ptr){
 int is_wilderness(sf_block *block){
     size_t size = GET_SIZE(HDRP(NEXT_BLKP((char *)block + 16)));    //size of the next block
     size_t alloc= GET_ALLOC(HDRP(NEXT_BLKP((char *)block + 16)));       //alloc bit of the next block
-    if(size && alloc){
+    if((size == 0) && (alloc == 1)){
         return 1;
     }
     else return 0;
+}
+
+//check if the num is a power of two
+int power_of_two(int num){
+    if (num == 0){
+        return 0;
+    }
+
+    while (num != 1){
+        if (num % 2 != 0){
+            return 0;
+        }
+        num = num / 2;
+    }
+    return 1;
 }

@@ -4,8 +4,7 @@
 int main(int argc, char const *argv[]) {
     sf_mem_init();
 
-    printf("%s%lu\n", "SIZE OF DOUBLE: ", sizeof(double));
-    double* ptr1 = sf_malloc(sizeof(double));
+/*    double* ptr1 = sf_malloc(sizeof(double));
     double* ptr2= sf_malloc(sizeof(int));
     double* ptr3= sf_malloc(50);
     double* ptr4= sf_malloc(124);
@@ -14,14 +13,18 @@ int main(int argc, char const *argv[]) {
 
     sf_show_heap();
     printf("%s\n", "XXX" );
-    sf_show_free_lists();
     printf("%s\n", "XXX" );
-    sf_show_blocks();
-    printf("%s\n", "XXX" );
-/*   *ptr = 320320320e-320;
 
-    printf("%f\n", *ptr);*/
+    ptr1= sf_realloc(ptr1,sizeof(int));
+    ptr2= sf_realloc(ptr2,10*sizeof(int));
+    ptr3= sf_realloc(ptr3,60);
+    ptr4= sf_realloc(ptr4,116);
+    ptr5= sf_realloc(ptr5,4);
+    ptr6= sf_realloc(ptr6,20);
 
+    sf_show_heap();
+    printf("%s\n", "YYY" );
+    printf("%s\n", "YYY" );
 
     sf_free(ptr1);
     sf_free(ptr2);
@@ -30,11 +33,17 @@ int main(int argc, char const *argv[]) {
     sf_free(ptr5);
     sf_free(ptr6);
 
+    sf_show_heap();*/
+    void *x = sf_malloc(sizeof(double) * 8);
+
     sf_show_heap();
-    printf("%s\n", "ZZZ" );
-    sf_show_free_lists();
-    printf("%s\n", "ZZZ" );
-    sf_show_blocks();
+    printf("%s\n", "YYY" );
+    printf("%s\n", "YYY" );
+
+    void *y = sf_realloc(x, sizeof(int));
+    printf("%p%p\n",x, y );
+
+    sf_show_heap();
 
     sf_mem_fini();
 
