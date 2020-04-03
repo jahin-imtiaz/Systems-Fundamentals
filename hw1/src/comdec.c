@@ -353,7 +353,7 @@ static int getValue(int i, int byteCount, FILE *in){
 static void expand_rules(SYMBOL *ruleHead, FILE *out, int *pbc){
     SYMBOL *ptr = ruleHead->next;
     while(ptr != ruleHead){
-        if(IS_TERMINAL(ptr)){
+        if(IS_ERMINAL(ptr)){
             fputc((ptr->value),out);
             (*pbc) +=1;
         }
