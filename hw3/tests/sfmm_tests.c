@@ -256,7 +256,7 @@ Test(sf_memsuite_student, memalign_invalid_align_requirement, .init = sf_mem_ini
     sf_errno = 0;
 
     void *w = sf_memalign(40, 68);		//68 is not a power of 2
-    cr_assert_null(w, "a is not NULL!");
+    cr_assert_null(w, "w is not NULL!");
     cr_assert(sf_errno == EINVAL, "sf_errno is not EINVAL!");
 }
 
@@ -268,9 +268,11 @@ Test(sf_memsuite_student, memalign_aligned_pointer, .init = sf_mem_init, .fini =
 	void *z = sf_memalign(40, 1024);
 
 	//all these pointers should be aligned
-	cr_assert((unsigned long)w % 64 == 0,"Pointer is not aligned!");
-	cr_assert((unsigned long)x % 256 == 0,"Pointer is not aligned!");
-	cr_assert((unsigned long)y % 512 == 0,"Pointer is not aligned!");
-	cr_assert((unsigned long)z % 1024 == 0,"Pointer is not aligned!");
+	cr_assert((size_t)w % 64 == 0,"Pointer is not aligned!");
+	cr_assert((size_t)x % 256 == 0,"Pointer is not aligned!");
+	cr_assert((size_t)y % 512 == 0,"Pointer is not aligned!");
+	cr_assert((size_t)z % 1024 == 0,"Pointer is not aligned!");
+
+	assert_free_list_size(NUM_FREE_LISTS-1, 1);
 
 }

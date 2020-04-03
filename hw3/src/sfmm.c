@@ -25,7 +25,7 @@ sf_block *coalesce(sf_block *block);
 int valid_pointer(void *ptr);
 int is_wilderness(sf_block *block);
 int power_of_two(int num);
-unsigned long next_multiple(unsigned long ptr_address , size_t align);
+size_t next_multiple(size_t ptr_address , size_t align);
 
 char *my_heap;
 char *prologue_header;
@@ -65,7 +65,7 @@ void *sf_malloc(size_t size) {
     //calculate the blocksize
     blocksize = get_required_block_bize(size);
 
-    //check if the required blocksize is greater than max value of unsigned long
+    //check if the required blocksize is greater than max value of size_t
     if (size >= blocksize){
         //blocksize will be less than the size if rounding up resulted in a roll over
         return NULL;
@@ -205,10 +205,10 @@ void *sf_memalign(size_t size, size_t align) {
     void *newPtr;
 
     //split from the front if necessary
-    if((unsigned long)malloc_ptr % align != 0){     //returned payload pointer was not aligned to align requirement
+    if((size_t)malloc_ptr % align != 0){     //returned payload pointer was not aligned to align requirement
 
         //which means payload pointer needs to be moved forward to meet the align requirement
-        size_t shift_amount = (next_multiple((unsigned long)malloc_ptr , align) - (unsigned long)malloc_ptr);
+        size_t shift_amount = (next_multiple((size_t)malloc_ptr , align) - (size_t)malloc_ptr);
 
         //update the new size of the prev header, alloc bit should be 0, keep the prev_alloc bit as it is
         PUT(HDRP(malloc_ptr), PACK(shift_amount, current_prev_alloc));
@@ -237,7 +237,7 @@ void *sf_memalign(size_t size, size_t align) {
 }
 
 //find next multiple of align requirement after ptr address
-unsigned long next_multiple(unsigned long ptr_address , size_t align){
+size_t next_multiple(size_t ptr_address , size_t align){
     return ((ptr_address+(align-1))/align)*align;
 }
 
@@ -552,7 +552,7 @@ int valid_pointer(void *ptr){
     }
 
     //the pointer is not aligned to a 64 byte boundary
-    if((unsigned long)ptr % 64 != 0){
+    if((size_t)ptr % 64 != 0){
         return 0;
     }
     return 1;
