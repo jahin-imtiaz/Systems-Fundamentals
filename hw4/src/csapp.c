@@ -1,3 +1,4 @@
+#ifdef NOTDEF
 /*
  * csapp.c - Functions for the CS:APP3e book
  *
@@ -1065,3 +1066,4 @@ int Open_listenfd(char *port)
 }
 
 /* $end csapp.c */
+#endif
