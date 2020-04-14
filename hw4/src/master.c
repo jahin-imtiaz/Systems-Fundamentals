@@ -11,5 +11,15 @@
  */
 int master(int workers) {
     // TO BE IMPLEMENTED
+    //maintain a data structure for workers state
+    //create child processes
+    //for each processes create two pipes and maintain a data structure
+    //inside each child, redirect standard input and output (see coordination protocol for details)
+    //execute the childs
+
+    //enter main loop
+    //repeatedly assign problems
+    //receive results
+    //post results
     return EXIT_FAILURE;
 }

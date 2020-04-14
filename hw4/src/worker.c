@@ -13,14 +13,17 @@ volatile sig_atomic_t sigterm_flag = 0;
 void sighup_handler(int sig) /* SIGHUP handler */
 {
 
+    int old_errno = errno;
     sighup_flag = 1;    //this flag was received and the problem solver should cancel the problem
-
+    errno = old_errno;
 }
 
 void sigterm_handler(int sig) /* SIGTERM handler */
 {
 
+    int old_errno = errno;
     sigterm_flag = 1;
+    errno = old_errno;
 
 }
 
