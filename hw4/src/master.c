@@ -26,9 +26,7 @@ struct worker *dequeue_idle_worker();
 void terminate_workers();
 
 struct signals signal_queue;             //maintain a data structure for signals
-
 struct worker worker_list_head;          //maintain a data structure for workers state
-
 struct worker idle_worker_queue;     //maintain a data structure for idle workers
 
 void sigchld_handler(int sig) /* SIGTERM handler */
@@ -220,6 +218,10 @@ int master(int workers) {
     //terminate all the running workers
     //free all problems in the workers
     terminate_workers();
+
+    //find out if some workers exited abnormally
+
+    //manage workers that exited and aborted appropriately
 
     return EXIT_FAILURE;
 
