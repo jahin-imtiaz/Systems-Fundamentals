@@ -12,10 +12,23 @@
  * (See polya.h for specification.)
  */
 void initialize_fd_array(int arr[][4], int workers);
-void initialize_worker_list(struct worker head);
-void enqueue_signal(int pid, int status);
+void initialize_worker_list();
+void initialize_idle_worker_queue();
+void initialize_sig_queue();
 
-struct signals signal_queue;
+struct worker *get_worker(int pid);
+int change_state(int current_state);
+void enqueue_signal(int pid, int status);
+struct signals *dequeue_signal();
+void enqueue_idle_worker(struct worker *idle_workerp);
+struct worker *dequeue_idle_worker();
+
+
+struct signals signal_queue;             //maintain a data structure for signals
+
+struct worker worker_list_head;          //maintain a data structure for workers state
+
+struct worker idle_worker_queue;     //maintain a data structure for idle workers
 
 void sigchld_handler(int sig) /* SIGTERM handler */
 {
@@ -42,9 +55,11 @@ int master(int workers) {
 
     initialize_fd_array(fd_list, workers);
 
-    struct worker worker_list_head;      //maintain a data structure for workers state
+    initialize_sig_queue();
 
-    initialize_worker_list(worker_list_head);
+    initialize_worker_list();
+
+    initialize_idle_worker_list();
 
     for(i = 0; i < workers; i++){      //create worker processes
 
@@ -73,21 +88,110 @@ int master(int workers) {
 
     while(1){
 
-        //check if any signal is received in the queue and take action
+        //check if any SIGCHLD signal is received in the queue and take action
+        while(signal_queue.next != &signal_queue){     //if empty, signal_queue's next should wrap itself
+
+            struct signals *tmp_sig = dequeue_signal();
+
+            int pid = tmp_sig->pid;
+
+            struct worker *tmp_worker = get_worker(pid);    //get the worker related to the signal
+
+            //if the workers current state is INIT, then it should be IDLE now
+            if(tmp_worker->current_state == 0){
+
+                tmp_worker->current_state = change_state(tmp_worker->current_state);
+
+                //add this worker to the idle list
+
+
+            }
+            //if the workers current state is CONTINUED, then it should be RUNNING now
+            else if(tmp_worker->current_state == WORKER_CONTINUED){
+
+                tmp_worker->current_state = change_state(tmp_worker->current_state);
+
+            }
+            //if the workers current state is RUNNING, then it should be STOPPED now
+            //So, Read the result and post it and change the state of the worker to IDLE
+            else if(tmp_worker->current_state == WORKER_RUNNING){
+
+                tmp_worker->current_state = change_state(tmp_worker->current_state);
+
+                //read result from the pipe
+                struct result *result_header = malloc(sizeof(struct result));
+
+                read(fd_list[tmp_worker->worker_number][2], result_header, sizeof(struct result));      //read the header
+
+                size_t result_size = result_header->size;              //get the total size of the result
+
+                result_header = realloc(result_header, result_size);   //realloc new size to fit the whole result
+
+                read(fd_list[tmp_worker->worker_number][2], ((char *)result_header)+sizeof(struct result), (result_size - sizeof(struct result)));//read the whole result
+
+                //check result
+                int rvalue = post_result(result_header, tmp_worker->current_problem);
+
+                //if correct, cancel all jobs
+                if(rvalue == 0){
+
+                    //send SIGHUP to all other workers except the current one
+                    struct worker *tmp = &worker_list_head;
+                    while(tmp->next != &worker_list_head){
+
+                        if((tmp->next)->worker_number != tmp_worker->worker_number ){   //if its not the current worker
+
+                            kill((tmp->next)->pid, SIGHUP);     //send SIGHUP signal to cancel the current job
+
+                        }
+
+                    }
+
+                }
+
+                //free the problem itself and set current_problem of the worker to be NULL because it is done with the current problem
+                free(tmp_worker->current_problem);
+                tmp_worker->current_problem = NULL;
+
+                //change state from STOPPED to IDLE
+                tmp_worker->current_state = change_state(tmp_worker->current_state);
+
+                free(result_header);
+
+            }
+
+            free(tmp_sig);
+
+        }
 
         //check if any worker is in idle mode or not
-        //assign problem if idle and get variant is non NULL
+        if(idle_worker_queue.next_idle != &idle_worker_queue){
+
+            //assign problems
+            struct worker *deq_idle_worker = dequeue_idle_worker();
+
+            //get variant of problem
+
+
+            //malloc the problem so we have access to it
+
+            //free the actual pointer returned by get variant
+
+            //if problem available, write problem to the pipe
+
+            //if not available, wait for all workers to become idle and break
+
+            //otherwise, send SIGCONT signal
+
+        }
+
+        //assign problem if idle and get variant is non NULL and also update the workers current_problem value
 
         //break if get variant returns null and all workers are idle
     }
 
-    //loop through the worker list inifinitly
-
-    //if empty, continue doing other things
-    //repeatedly assign problems
-    //receive results
-    //post results
     //free the queues //free each time you use dequeue
+    //free all problems and workers
 
     return EXIT_FAILURE;
 
@@ -109,12 +213,44 @@ void initialize_fd_array(int arr[][4], int workers){
     }
 }
 
-void initialize_worker_list(struct worker head){
+void initialize_worker_list(){
 
-    head.next = &head;
-    head.prev = &head;
+    worker_list_head.next = &worker_list_head;
+    worker_list_head.prev = &worker_list_head;
 }
 
+void initialize_idle_worker_queue(){
+
+    worker_list_head.next_idle = &worker_list_head;
+    worker_list_head.prev_idle = &worker_list_head;
+}
+
+//adds a idle worker in the queue
+void enqueue_idle_worker(struct worker *idle_workerp){
+
+    (idle_worker_queue.prev_idle)-> next_idle = idle_workerp;
+
+    idle_workerp->prev_idle = idle_worker_queue.prev_idle;
+
+    idle_workerp->next_idle = &idle_worker_queue;
+
+    idle_worker_queue.prev_idle = idle_workerp;
+
+}
+
+//removes a idle worker from the queue and returns it
+struct worker *dequeue_idle_worker(){
+
+    struct worker * tmp = idle_worker_queue.next_idle;
+
+    ((idle_worker_queue.next_idle)->next_idle)->prev_idle = &idle_worker_queue;
+
+    idle_worker_queue.next_idle = (idle_worker_queue.next_idle)->next_idle;
+
+    return tmp;
+}
+
+//given a state, it changes to the next state
 int change_state(int current_state){
     switch(current_state){
 
@@ -148,6 +284,29 @@ int change_state(int current_state){
     return 0;
 }
 
+struct worker *get_worker(int pid){
+
+    struct worker *tmp = &worker_list_head;
+    while(tmp->next != &worker_list_head){
+
+        if((*(tmp->next)).pid == pid){
+            return tmp->next;
+        }
+
+        tmp = tmp->next;
+    }
+
+    return NULL;
+}
+
+void initialize_sig_queue(){
+
+    signal_queue.next = &signal_queue;
+    signal_queue.prev = &signal_queue;
+
+}
+
+//adds a signals structure in the queue
 void enqueue_signal(int pid, int status){
 
     struct signals * nsignals = (struct signals*) malloc(sizeof(struct signals));
@@ -158,7 +317,7 @@ void enqueue_signal(int pid, int status){
 
     (signal_queue.prev)-> next = nsignals;
 
-    nsignals->prev = (signal_queue.prev)->next;
+    nsignals->prev = signal_queue.prev;
 
     nsignals->next = &signal_queue;
 
@@ -166,14 +325,16 @@ void enqueue_signal(int pid, int status){
 
 }
 
-struct signals dequeue_signal(){
+//removes a signals structure from the queue and returns it
+struct signals *dequeue_signal(){
 
     struct signals * tmp = signal_queue.next;
 
-    (signal_queue.next)->prev = &signal_queue;
+    ((signal_queue.next)->next)->prev = &signal_queue;
 
-    signal_queue.next = (signal_queue.next)->prev;
+    signal_queue.next = ((signal_queue.next)->next);
 
-    return *tmp;
+    return tmp;
 }
+
 

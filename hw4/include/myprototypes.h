@@ -11,8 +11,13 @@ struct worker{
     int pid;
     int worker_number;
     int current_state;
-    struct worker *next;
-    struct worker *prev;
+    struct problem *current_problem;
+
+    struct worker *next;    //pointer in the worker list
+    struct worker *prev;    //pointer in the worker list
+
+    struct worker *next_idle;    //pointer in the idle_worker list
+    struct worker *prev_idle;    //pointer in the idle_worker list
 };
 
 struct signals
