@@ -15,6 +15,14 @@ struct worker{
     struct worker *prev;
 };
 
+struct signals
+{
+    int pid;
+    int status;
+    struct signals *next;
+    struct signals *prev;
+};
+
 typedef void (*sighandler_t)(int);   //can now use sighandler_t SIGKILL
 
 #endif
