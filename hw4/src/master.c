@@ -17,12 +17,13 @@ void initialize_idle_worker_queue();
 void initialize_sig_queue();
 
 struct worker *get_worker(int pid);
+int get_idle_count();
 int change_state(int current_state);
 void enqueue_signal(int pid, int status);
 struct signals *dequeue_signal();
 void enqueue_idle_worker(struct worker *idle_workerp);
 struct worker *dequeue_idle_worker();
-
+void terminate_workers();
 
 struct signals signal_queue;             //maintain a data structure for signals
 
@@ -50,6 +51,7 @@ int master(int workers) {
          return EXIT_FAILURE;
 
     int i, pid;
+    int var = 0;
 
     int fd_list[workers][4];     //maintain a data structure for pipes
 
@@ -59,7 +61,7 @@ int master(int workers) {
 
     initialize_worker_list();
 
-    initialize_idle_worker_list();
+    initialize_idle_worker_queue();
 
     for(i = 0; i < workers; i++){      //create worker processes
 
@@ -86,7 +88,7 @@ int master(int workers) {
     }
 
 
-    while(1){
+    while(1){   //break if get variant returns null and all workers are idle
 
         //check if any SIGCHLD signal is received in the queue and take action
         while(signal_queue.next != &signal_queue){     //if empty, signal_queue's next should wrap itself
@@ -147,6 +149,9 @@ int master(int workers) {
 
                     }
 
+                    //reset var to zero for the next problem
+                    var = 0;
+
                 }
 
                 //free the problem itself and set current_problem of the worker to be NULL because it is done with the current problem
@@ -165,33 +170,56 @@ int master(int workers) {
         }
 
         //check if any worker is in idle mode or not
+        //assign problem if idle and get variant is non NULL and also update the workers current_problem value
         if(idle_worker_queue.next_idle != &idle_worker_queue){
-
             //assign problems
-            struct worker *deq_idle_worker = dequeue_idle_worker();
 
             //get variant of problem
+            struct problem *new_problem = get_problem_variant(workers, var++);
 
+            if(new_problem == NULL){
 
-            //malloc the problem so we have access to it
+                //check if idle worker count is equal to the number of workers
+                //if yes, break from the loop and terminate
+                if(get_idle_count() == workers){
 
-            //free the actual pointer returned by get variant
+                    break;
 
-            //if problem available, write problem to the pipe
+                }
 
-            //if not available, wait for all workers to become idle and break
+            }
+            else{
 
-            //otherwise, send SIGCONT signal
+                //malloc the problem so we have access to it
+                struct problem *mallocd_problem = malloc(new_problem->size);
+
+                memcpy(mallocd_problem, new_problem, new_problem->size);
+
+                //free the actual pointer returned by get variant
+                free(new_problem);
+
+                //assign workers current problem as this one
+                (idle_worker_queue.next_idle)->current_problem = mallocd_problem;
+
+                // write problem to the pipe
+                write(fd_list[(idle_worker_queue.next_idle)->worker_number][1], mallocd_problem, mallocd_problem->size);
+
+                //send SIGCONT signal
+                kill((idle_worker_queue.next_idle)->pid, SIGCONT);
+
+                //chage the workers state
+                (idle_worker_queue.next_idle)->current_state = change_state((idle_worker_queue.next_idle)->current_state);
+
+                //remove the worker from the idle list
+                dequeue_idle_worker();
+
+            }
 
         }
-
-        //assign problem if idle and get variant is non NULL and also update the workers current_problem value
-
-        //break if get variant returns null and all workers are idle
     }
-
-    //free the queues //free each time you use dequeue
-    //free all problems and workers
+    //terminate all the running workers
+    //free all problems in the workers
+    terminate_workers();
 
     return EXIT_FAILURE;
 
@@ -337,4 +365,29 @@ struct signals *dequeue_signal(){
     return tmp;
 }
 
+int get_idle_count(){
 
+    int count = 0;
+    struct worker *tmp = &idle_worker_queue;
+    while(tmp->next_idle != &idle_worker_queue){
+
+        count++;
+
+        tmp = tmp->next_idle;
+    }
+
+    return count;
+}
+
+void terminate_workers(){
+
+    struct worker *tmp = &worker_list_head;
+    while(tmp->next != &worker_list_head){
+
+        kill((tmp->next)->pid, SIGTERM);
+        free((tmp->next)->current_problem);
+        tmp = tmp->next;
+
+    }
+
+}
