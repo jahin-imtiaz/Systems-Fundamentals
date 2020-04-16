@@ -33,6 +33,7 @@ void sigterm_handler(int sig) /* SIGTERM handler */
  */
 int worker(void) {
     // TO BE IMPLEMENTED
+    int i;
 
     //install signal handlers
     if (signal(SIGHUP, sighup_handler) == SIG_ERR)
@@ -49,20 +50,36 @@ int worker(void) {
         //read a problem
         struct problem *problem_header = malloc(sizeof(struct problem));
 
-        read(0, problem_header, sizeof(struct problem));      //read the header
+        /*read(0, problem_header, sizeof(struct problem));      //read the header*/
+        for(i = 0; i < sizeof(struct problem); i++){
+
+            *((char *)problem_header+i) = fgetc(stdin);
+
+        }
 
         size_t prob_size = problem_header->size;              //get the total size of the problem
 
         problem_header = realloc(problem_header, prob_size);  //realloc new size to fit the whole problem
 
-        read(0, ((char *)problem_header)+sizeof(struct problem), (prob_size - sizeof(struct problem)));//read the whole problem
+        /*read(0, ((char *)problem_header)+sizeof(struct problem), (prob_size - sizeof(struct problem)));//read the whole problem*/
+        for(i = 0; i < (prob_size - sizeof(struct problem)); i++){
+
+            *(((char *)problem_header)+(sizeof(struct problem)+i)) = fgetc(stdin);
+
+        }
 
         struct result *prob_result = (solvers[problem_header->type].solve)(problem_header, &sighup_flag); //solve the problem
 
 
         if(prob_result != NULL){    //NULL if solver is cancelled or malloc error
 
-            write(1, prob_result, prob_result->size);    //write the result
+            /*write(1, prob_result, prob_result->size);    //write the result*/
+            for(i = 0; i < prob_result->size; i++){
+
+                fputc(*((char *)prob_result+i), stdout);
+
+            }
+            fflush(stdout);
 
         }
         else{
@@ -72,7 +89,13 @@ int worker(void) {
             struct result tmp;  //write an empty result with failed flag enable
             tmp.size = sizeof(struct result);
             tmp.failed = 1;
-            write(1,  &tmp, sizeof(struct result));
+            /*write(1,  &tmp, sizeof(struct result));*/
+            for(i = 0; i < sizeof(struct result); i++){
+
+                fputc(*((char *)&tmp+i), stdout);
+
+            }
+            fflush(stdout);
 
         }
 

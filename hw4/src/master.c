@@ -48,6 +48,9 @@ int master(int workers) {
     if (signal(SIGCHLD, sigchld_handler) == SIG_ERR)
          return EXIT_FAILURE;
 
+    if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
+         return EXIT_FAILURE;
+
     int i, pid;
     int var = 0;
 
@@ -68,12 +71,19 @@ int master(int workers) {
             dup2(fd_list[i][0] , 0);     //redirect stdin
             dup2(fd_list[i][3] , 1);     //redirect stdout
 
+            close(fd_list[i][1]);       //close opposite side of pipe 1
+            close(fd_list[i][2]);       //close opposite side of pipe 2
+
             //???????manage opening and closing of files
             char **argv = NULL;          //??????????????????????????????????
             execv("bin/polya_worker", argv);
 
         }
         else{
+
+            close(fd_list[i][0]);       //close opposite side of pipe 1
+            close(fd_list[i][3]);       //close opposite side of pipe 2
+
             struct worker nworker;
             nworker.pid = pid;
             nworker.worker_number = i;
@@ -121,13 +131,26 @@ int master(int workers) {
                 //read result from the pipe
                 struct result *result_header = malloc(sizeof(struct result));
 
-                read(fd_list[tmp_worker->worker_number][2], result_header, sizeof(struct result));      //read the header
+                /*read(fd_list[tmp_worker->worker_number][2], result_header, sizeof(struct result));      //read the header*/
+                FILE *read_file = fdopen(fd_list[tmp_worker->worker_number][2], "r");
+                for(i = 0; i < sizeof(struct result); i++){
+
+                    *((char *)result_header+i) = fgetc(read_file);
+
+                }
 
                 size_t result_size = result_header->size;              //get the total size of the result
 
                 result_header = realloc(result_header, result_size);   //realloc new size to fit the whole result
 
-                read(fd_list[tmp_worker->worker_number][2], ((char *)result_header)+sizeof(struct result), (result_size - sizeof(struct result)));//read the whole result
+                /*read(fd_list[tmp_worker->worker_number][2], ((char *)result_header)+sizeof(struct result), (result_size - sizeof(struct result)));//read the whole result*/
+                for(i = 0; i < (result_size - sizeof(struct result)); i++){
+
+                    *((char *)result_header+(sizeof(struct result)+i)) = fgetc(read_file);
+
+                }
+
+                fclose(read_file);
 
                 //check result
                 int rvalue = post_result(result_header, tmp_worker->current_problem);
@@ -199,11 +222,19 @@ int master(int workers) {
                 //assign workers current problem as this one
                 (idle_worker_queue.next_idle)->current_problem = mallocd_problem;
 
-                // write problem to the pipe
-                write(fd_list[(idle_worker_queue.next_idle)->worker_number][1], mallocd_problem, mallocd_problem->size);
-
                 //send SIGCONT signal
                 kill((idle_worker_queue.next_idle)->pid, SIGCONT);
+
+                // write problem to the pipe
+                /*write(fd_list[(idle_worker_queue.next_idle)->worker_number][1], mallocd_problem, mallocd_problem->size);*/
+                FILE *write_file = fdopen(fd_list[(idle_worker_queue.next_idle)->worker_number][1], "w");
+                for(i = 0; i < mallocd_problem->size; i++){
+
+                    fputc(*((char *)mallocd_problem+i), write_file);
+
+                }
+                fflush(write_file);
+                fclose(write_file);
 
                 //chage the workers state
                 (idle_worker_queue.next_idle)->current_state = change_state((idle_worker_queue.next_idle)->current_state);
@@ -222,6 +253,8 @@ int master(int workers) {
     //find out if some workers exited abnormally
 
     //manage workers that exited and aborted appropriately
+
+    //pipes can fail. so check it.
 
     return EXIT_FAILURE;
 
