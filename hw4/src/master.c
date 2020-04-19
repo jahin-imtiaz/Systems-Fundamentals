@@ -57,6 +57,11 @@ int master(int workers) {
     int i, pid;
     int var = 0;
 
+    //set the masks
+    sigset_t mask, prev_mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+
     int fd_list[workers][4];     //maintain a data structure for pipes
 
     initialize_fd_array(fd_list, workers);
@@ -107,7 +112,9 @@ int master(int workers) {
         //check if any SIGCHLD signal is received in the queue and take action
         while(signal_queue.next != &signal_queue){     //if empty, signal_queue's next should wrap itself
 
+            sigprocmask(SIG_BLOCK, &mask, &prev_mask); //block signal
             struct signals *tmp_sig = dequeue_signal();
+            sigprocmask(SIG_SETMASK, &prev_mask, NULL);
 
             int pid2 = tmp_sig->pid;
 
@@ -297,7 +304,9 @@ int master(int workers) {
 
         while(signal_queue.next != &signal_queue){      //while there is atleast one unhandled signal
 
+            sigprocmask(SIG_BLOCK, &mask, &prev_mask);
             struct signals *tmp_sig = dequeue_signal();
+            sigprocmask(SIG_SETMASK, &prev_mask, NULL);
 
             int pid3 = tmp_sig->pid;
 

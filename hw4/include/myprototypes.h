@@ -28,6 +28,6 @@ struct signals
     struct signals *prev;
 };
 
-typedef void (*sighandler_t)(int);   //can now use sighandler_t SIGKILL
+/*typedef void (*sighandler_t)(int);   //can now use sighandler_t SIGKILL*/
 
 #endif
