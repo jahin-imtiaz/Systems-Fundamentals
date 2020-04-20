@@ -23,7 +23,7 @@ void enqueue_signal(int pid, int status);
 struct signals *dequeue_signal();
 void enqueue_idle_worker(struct worker *idle_workerp);
 struct worker *dequeue_idle_worker();
-void terminate_workers();
+void continue_and_terminate_workers();
 int get_exit_abort_count();
 int is_success();
 
@@ -40,6 +40,8 @@ void sigchld_handler(int sig) /* SIGTERM handler */
     int pid = waitpid(-1, &status, (WNOHANG|WUNTRACED)|WCONTINUED);
     enqueue_signal(pid, status);
 
+    debug("RECEIVED SIGCHLD FROM WORKER : %d",pid);
+
     errno = old_errno;
 
 }
@@ -55,7 +57,6 @@ int master(int workers) {
          return EXIT_FAILURE;
 
     int i, pid;
-    int var = 0;
 
     //set the masks
     sigset_t mask, prev_mask;
@@ -153,7 +154,7 @@ int master(int workers) {
                     tmp_worker->current_state = change_state(tmp_worker->current_state);
 
                     //add this worker to the idle list
-
+                    enqueue_idle_worker(tmp_worker);
 
                 }
                 //if the workers current state is CONTINUED, then it should be RUNNING now
@@ -214,10 +215,9 @@ int master(int workers) {
 
                             }
 
-                        }
+                            tmp = tmp->next;
 
-                        //reset var to zero for the next problem
-                        var = 0;
+                        }
 
                     }
 
@@ -228,6 +228,9 @@ int master(int workers) {
                     //change state from STOPPED to IDLE
                     sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
                     tmp_worker->current_state = change_state(tmp_worker->current_state);
+
+                    //add this worker to the idle list
+                    enqueue_idle_worker(tmp_worker);
 
                     free(result_header);
 
@@ -243,7 +246,7 @@ int master(int workers) {
             //assign problems
 
             //get variant of problem
-            struct problem *new_problem = get_problem_variant(workers, var++);
+            struct problem *new_problem = get_problem_variant(workers, (idle_worker_queue.next_idle)->worker_number);
 
             if(new_problem == NULL){
 
@@ -262,9 +265,6 @@ int master(int workers) {
                 struct problem *mallocd_problem = malloc(new_problem->size);
 
                 memcpy(mallocd_problem, new_problem, new_problem->size);
-
-                //free the actual pointer returned by get variant
-                free(new_problem);
 
                 //assign workers current problem as this one
                 (idle_worker_queue.next_idle)->current_problem = mallocd_problem;
@@ -298,7 +298,9 @@ int master(int workers) {
     }
     //terminate all the running workers
     //free all problems in the workers
-    terminate_workers();
+    debug("MASTER PROCESS HAS NOT YET TERMINATED ALL WORKERS");
+    continue_and_terminate_workers();
+    debug("MASTER PROCESS HAS TERMINATED ALL WORKERS");
 
     while(get_exit_abort_count() != workers){        //while atleast one worker hasn't exited or aborted
 
@@ -312,34 +314,34 @@ int master(int workers) {
 
             int status2=tmp_sig->status;
 
-            struct worker *tmp_worker = get_worker(pid3);    //get the worker related to the signal
+            struct worker *tmp_worker2 = get_worker(pid3);    //get the worker related to the signal
 
             if(WIFEXITED(status2)){      //child has exited
 
                 if(WEXITSTATUS(status2) == 0){   //exited normally
 
-                    sf_change_state(tmp_worker->pid, tmp_worker->current_state, WORKER_EXITED);
-                    tmp_worker->current_state = WORKER_EXITED;
+                    sf_change_state(tmp_worker2->pid, tmp_worker2->current_state, WORKER_EXITED);
+                    tmp_worker2->current_state = WORKER_EXITED;
 
                 }
                 else{   //or exited abnormally
 
-                    sf_change_state(tmp_worker->pid, tmp_worker->current_state, WORKER_ABORTED);
-                    tmp_worker->current_state = WORKER_ABORTED;
+                    sf_change_state(tmp_worker2->pid, tmp_worker2->current_state, WORKER_ABORTED);
+                    tmp_worker2->current_state = WORKER_ABORTED;
 
                 }
 
             }
             else if(WIFSIGNALED(status2)){       //aborted because of a signal
 
-                sf_change_state(tmp_worker->pid, tmp_worker->current_state, WORKER_ABORTED);
-                tmp_worker->current_state = WORKER_ABORTED;
+                sf_change_state(tmp_worker2->pid, tmp_worker2->current_state, WORKER_ABORTED);
+                tmp_worker2->current_state = WORKER_ABORTED;
 
             }
-            else {      //else child has continued due to SIGTERM
+            else {      //else child has continued due to SIGCONT
 
-                sf_change_state(tmp_worker->pid, tmp_worker->current_state, WORKER_RUNNING);
-                tmp_worker->current_state = WORKER_RUNNING;
+                sf_change_state(tmp_worker2->pid, tmp_worker2->current_state, WORKER_RUNNING);
+                tmp_worker2->current_state = WORKER_RUNNING;
 
             }
 
@@ -380,14 +382,18 @@ void initialize_fd_array(int arr[][4], int workers){
 
 void initialize_worker_list(){
 
+    worker_list_head.pid = -1;
+    worker_list_head.worker_number = -1;
     worker_list_head.next = &worker_list_head;
     worker_list_head.prev = &worker_list_head;
 }
 
 void initialize_idle_worker_queue(){
 
-    worker_list_head.next_idle = &worker_list_head;
-    worker_list_head.prev_idle = &worker_list_head;
+    idle_worker_queue.pid = -1;
+    idle_worker_queue.worker_number = -1;
+    idle_worker_queue.next_idle = &idle_worker_queue;
+    idle_worker_queue.prev_idle = &idle_worker_queue;
 }
 
 //adds a idle worker in the queue
@@ -454,18 +460,20 @@ struct worker *get_worker(int pid){
     struct worker *tmp = &worker_list_head;
     while(tmp->next != &worker_list_head){
 
-        if((*(tmp->next)).pid == pid){
-            return tmp->next;
+        if((tmp->next)->pid == pid){
+            break;
         }
 
         tmp = tmp->next;
     }
 
-    return NULL;
+    return tmp->next;
 }
 
 void initialize_sig_queue(){
 
+    signal_queue.pid = -1;
+    signal_queue.status = -1;
     signal_queue.next = &signal_queue;
     signal_queue.prev = &signal_queue;
 
@@ -516,12 +524,16 @@ int get_idle_count(){
     return count;
 }
 
-void terminate_workers(){
+void continue_and_terminate_workers(){
 
     struct worker *tmp = &worker_list_head;
+
     while(tmp->next != &worker_list_head){
 
         kill((tmp->next)->pid, SIGTERM);
+
+        kill((tmp->next)->pid, SIGCONT);
+
         free((tmp->next)->current_problem);
         tmp = tmp->next;
 

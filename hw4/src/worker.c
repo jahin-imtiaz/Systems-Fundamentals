@@ -99,11 +99,11 @@ int worker(void) {
 
         }
 
-        kill(getpid(), SIGSTOP);//stop and go back to idle state
-
         //free the variables
         free(problem_header);
         free(prob_result);
+
+        kill(getpid(), SIGSTOP);//stop and go back to idle state
 
     }
 
