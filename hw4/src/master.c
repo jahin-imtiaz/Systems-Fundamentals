@@ -147,94 +147,269 @@ int master(int workers) {
             }
             else{       //SIGCHLD has been received
 
-                //if the workers current state is STARTED, then it should be IDLE now
-                if(tmp_worker->current_state == WORKER_STARTED){
+                ///////////////////////////////////////////////
+                if(WIFSTOPPED(status)){     //worker stopped
 
-                    sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
-                    tmp_worker->current_state = change_state(tmp_worker->current_state);
+                    //if the workers current state is STARTED, then it should be IDLE now
+                    if(tmp_worker->current_state == WORKER_STARTED){
 
-                    //add this worker to the idle list
-                    enqueue_idle_worker(tmp_worker);
+                        sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
+                        tmp_worker->current_state = change_state(tmp_worker->current_state);
 
-                }
-                //if the workers current state is CONTINUED, then it should be RUNNING now
-                else if(tmp_worker->current_state == WORKER_CONTINUED){
-
-                    sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
-                    tmp_worker->current_state = change_state(tmp_worker->current_state);
-
-                }
-                //if the workers current state is RUNNING, then it should be STOPPED now
-                //So, Read the result and post it and change the state of the worker to IDLE
-                else if(tmp_worker->current_state == WORKER_RUNNING){
-
-                    sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
-                    tmp_worker->current_state = change_state(tmp_worker->current_state);
-
-                    //read result from the pipe
-                    struct result *result_header = malloc(sizeof(struct result));
-
-                    /*read(fd_list[tmp_worker->worker_number][2], result_header, sizeof(struct result));      //read the header*/
-                    FILE *read_file = fdopen(fd_list[tmp_worker->worker_number][2], "r");
-                    for(i = 0; i < sizeof(struct result); i++){
-
-                        *((char *)result_header+i) = fgetc(read_file);
+                        //add this worker to the idle list
+                        enqueue_idle_worker(tmp_worker);
 
                     }
 
-                    size_t result_size = result_header->size;              //get the total size of the result
+                    //if the workers current state is CONTINUED, then it should be STOPPED now (missed the signal for running)
+                    else if(tmp_worker->current_state == WORKER_CONTINUED){
 
-                    result_header = realloc(result_header, result_size);   //realloc new size to fit the whole result
+                        //change it from CONTINUED to RUNNING
+                        sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
+                        tmp_worker->current_state = change_state(tmp_worker->current_state);
 
-                    /*read(fd_list[tmp_worker->worker_number][2], ((char *)result_header)+sizeof(struct result), (result_size - sizeof(struct result)));//read the whole result*/
-                    for(i = 0; i < (result_size - sizeof(struct result)); i++){
+                        //change it from RUNNING to STOPPED
+                        sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
+                        tmp_worker->current_state = change_state(tmp_worker->current_state);
 
-                        *((char *)result_header+(sizeof(struct result)+i)) = fgetc(read_file);
+                        //read result from the pipe
+                        struct result *result_header = malloc(sizeof(struct result));
 
-                    }
+                        /*read(fd_list[tmp_worker->worker_number][2], result_header, sizeof(struct result));      //read the header*/
+                        FILE *read_file = fdopen(fd_list[tmp_worker->worker_number][2], "r");
+                        for(i = 0; i < sizeof(struct result); i++){
 
-                    fclose(read_file);
-
-                    sf_recv_result(tmp_worker->pid, result_header);
-
-                    //check result
-                    int rvalue = post_result(result_header, tmp_worker->current_problem);
-
-                    //if correct, cancel all jobs
-                    if(rvalue == 0){
-
-                        //send SIGHUP to all other workers except the current one
-                        struct worker *tmp = &worker_list_head;
-                        while(tmp->next != &worker_list_head){
-
-                            if((tmp->next)->worker_number != tmp_worker->worker_number ){   //if its not the current worker
-
-                                sf_cancel((tmp->next)->pid);
-
-                                kill((tmp->next)->pid, SIGHUP);     //send SIGHUP signal to cancel the current job
-
-                            }
-
-                            tmp = tmp->next;
+                            *((char *)result_header+i) = fgetc(read_file);
 
                         }
 
+                        size_t result_size = result_header->size;              //get the total size of the result
+
+                        result_header = realloc(result_header, result_size);   //realloc new size to fit the whole result
+
+                        /*read(fd_list[tmp_worker->worker_number][2], ((char *)result_header)+sizeof(struct result), (result_size - sizeof(struct result)));//read the whole result*/
+                        for(i = 0; i < (result_size - sizeof(struct result)); i++){
+
+                            *((char *)result_header+(sizeof(struct result)+i)) = fgetc(read_file);
+
+                        }
+
+                        fclose(read_file);
+
+                        sf_recv_result(tmp_worker->pid, result_header);
+
+                        //check result
+                        int rvalue = post_result(result_header, tmp_worker->current_problem);
+
+                        //if correct, cancel all jobs
+                        if(rvalue == 0){
+
+                            //send SIGHUP to all other workers except the current one
+                            struct worker *tmp = &worker_list_head;
+                            while(tmp->next != &worker_list_head){
+
+                                if((tmp->next)->worker_number != tmp_worker->worker_number ){   //if its not the current worker
+
+                                    sf_cancel((tmp->next)->pid);
+
+                                    kill((tmp->next)->pid, SIGHUP);     //send SIGHUP signal to cancel the current job
+
+                                }
+
+                                tmp = tmp->next;
+
+                            }
+
+                        }
+
+                        //free the problem itself and set current_problem of the worker to be NULL because it is done with the current problem
+                        free(tmp_worker->current_problem);
+                        tmp_worker->current_problem = NULL;
+
+                        //change state from STOPPED to IDLE
+                        sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
+                        tmp_worker->current_state = change_state(tmp_worker->current_state);
+
+                        //add this worker to the idle list
+                        enqueue_idle_worker(tmp_worker);
+
+                        free(result_header);
+
                     }
 
-                    //free the problem itself and set current_problem of the worker to be NULL because it is done with the current problem
-                    free(tmp_worker->current_problem);
-                    tmp_worker->current_problem = NULL;
+                    //if the workers current state is RUNNING, then it should be STOPPED now
+                    //So, Read the result and post it and change the state of the worker to IDLE
+                    else if(tmp_worker->current_state == WORKER_RUNNING){
 
-                    //change state from STOPPED to IDLE
-                    sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
-                    tmp_worker->current_state = change_state(tmp_worker->current_state);
+                        //change it from RUNNING to STOPPED
+                        sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
+                        tmp_worker->current_state = change_state(tmp_worker->current_state);
 
-                    //add this worker to the idle list
-                    enqueue_idle_worker(tmp_worker);
+                        //read result from the pipe
+                        struct result *result_header = malloc(sizeof(struct result));
 
-                    free(result_header);
+                        /*read(fd_list[tmp_worker->worker_number][2], result_header, sizeof(struct result));      //read the header*/
+                        FILE *read_file = fdopen(fd_list[tmp_worker->worker_number][2], "r");
+                        for(i = 0; i < sizeof(struct result); i++){
+
+                            *((char *)result_header+i) = fgetc(read_file);
+
+                        }
+
+                        size_t result_size = result_header->size;              //get the total size of the result
+
+                        result_header = realloc(result_header, result_size);   //realloc new size to fit the whole result
+
+                        /*read(fd_list[tmp_worker->worker_number][2], ((char *)result_header)+sizeof(struct result), (result_size - sizeof(struct result)));//read the whole result*/
+                        for(i = 0; i < (result_size - sizeof(struct result)); i++){
+
+                            *((char *)result_header+(sizeof(struct result)+i)) = fgetc(read_file);
+
+                        }
+
+                        fclose(read_file);
+
+                        sf_recv_result(tmp_worker->pid, result_header);
+
+                        //check result
+                        int rvalue = post_result(result_header, tmp_worker->current_problem);
+
+                        //if correct, cancel all jobs
+                        if(rvalue == 0){
+
+                            //send SIGHUP to all other workers except the current one
+                            struct worker *tmp = &worker_list_head;
+                            while(tmp->next != &worker_list_head){
+
+                                if((tmp->next)->worker_number != tmp_worker->worker_number ){   //if its not the current worker
+
+                                    sf_cancel((tmp->next)->pid);
+
+                                    kill((tmp->next)->pid, SIGHUP);     //send SIGHUP signal to cancel the current job
+
+                                }
+
+                                tmp = tmp->next;
+
+                            }
+
+                        }
+
+                        //set current_problem of the worker to be NULL because it is done with the current problem
+                        tmp_worker->current_problem = NULL;
+
+                        //change state from STOPPED to IDLE
+                        sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
+                        tmp_worker->current_state = change_state(tmp_worker->current_state);
+
+                        //add this worker to the idle list
+                        enqueue_idle_worker(tmp_worker);
+
+                        free(result_header);
+                    }
 
                 }
+                else if(WIFCONTINUED(status)){  //worker continued
+
+                    //if the workers current state is CONTINUED, then it should be RUNNING now
+                    if(tmp_worker->current_state == WORKER_CONTINUED){
+
+                        sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
+                        tmp_worker->current_state = change_state(tmp_worker->current_state);
+
+                    }
+
+                }
+                ///////////////////////////////////////////////
+
+            //     /*/*//if the workers current state is STARTED, then it should be IDLE now
+            //     if(tmp_worker->current_state == WORKER_STARTED){
+
+            //         sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
+            //         tmp_worker->current_state = change_state(tmp_worker->current_state);
+
+            //         //add this worker to the idle list
+            //         enqueue_idle_worker(tmp_worker);
+
+            //     }
+            //     //if the workers current state is CONTINUED, then it should be RUNNING now
+            //     else if(tmp_worker->current_state == WORKER_CONTINUED){
+
+            //         sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
+            //         tmp_worker->current_state = change_state(tmp_worker->current_state);
+
+            //     }
+            //     //if the workers current state is RUNNING, then it should be STOPPED now
+            //     //So, Read the result and post it and change the state of the worker to IDLE
+            //     else if(tmp_worker->current_state == WORKER_RUNNING){
+
+            //         sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
+            //         tmp_worker->current_state = change_state(tmp_worker->current_state);
+
+            //         //read result from the pipe
+            //         struct result *result_header = malloc(sizeof(struct result));
+
+            //         /*read(fd_list[tmp_worker->worker_number][2], result_header, sizeof(struct result));      //read the header*/
+            //         FILE *read_file = fdopen(fd_list[tmp_worker->worker_number][2], "r");
+            //         for(i = 0; i < sizeof(struct result); i++){
+
+            //             *((char *)result_header+i) = fgetc(read_file);
+
+            //         }
+
+            //         size_t result_size = result_header->size;              //get the total size of the result
+
+            //         result_header = realloc(result_header, result_size);   //realloc new size to fit the whole result
+
+            //         /*read(fd_list[tmp_worker->worker_number][2], ((char *)result_header)+sizeof(struct result), (result_size - sizeof(struct result)));//read the whole result*/
+            //         for(i = 0; i < (result_size - sizeof(struct result)); i++){
+
+            //             *((char *)result_header+(sizeof(struct result)+i)) = fgetc(read_file);
+
+            //         }
+
+            //         fclose(read_file);
+
+            //         sf_recv_result(tmp_worker->pid, result_header);
+
+            //         //check result
+            //         int rvalue = post_result(result_header, tmp_worker->current_problem);
+
+            //         //if correct, cancel all jobs
+            //         if(rvalue == 0){
+
+            //             //send SIGHUP to all other workers except the current one
+            //             struct worker *tmp = &worker_list_head;
+            //             while(tmp->next != &worker_list_head){
+
+            //                 if((tmp->next)->worker_number != tmp_worker->worker_number ){   //if its not the current worker
+
+            //                     sf_cancel((tmp->next)->pid);
+
+            //                     kill((tmp->next)->pid, SIGHUP);     //send SIGHUP signal to cancel the current job
+
+            //                 }
+
+            //                 tmp = tmp->next;
+
+            //             }
+
+            //         }
+
+            //         //free the problem itself and set current_problem of the worker to be NULL because it is done with the current problem
+            //         free(tmp_worker->current_problem);
+            //         tmp_worker->current_problem = NULL;
+
+            //         //change state from STOPPED to IDLE
+            //         sf_change_state(tmp_worker->pid, tmp_worker->current_state, change_state(tmp_worker->current_state));
+            //         tmp_worker->current_state = change_state(tmp_worker->current_state);
+
+            //         //add this worker to the idle list
+            //         enqueue_idle_worker(tmp_worker);
+
+            //         free(result_header);
+
+            //     }
             }
             free(tmp_sig);
 
@@ -261,13 +436,8 @@ int master(int workers) {
             }
             else{
 
-                //malloc the problem so we have access to it
-                struct problem *mallocd_problem = malloc(new_problem->size);
-
-                memcpy(mallocd_problem, new_problem, new_problem->size);
-
                 //assign workers current problem as this one
-                (idle_worker_queue.next_idle)->current_problem = mallocd_problem;
+                (idle_worker_queue.next_idle)->current_problem = new_problem;
 
                 //change state of the worker from IDLE to CONTINUED
                 sf_change_state((idle_worker_queue.next_idle)->pid, (idle_worker_queue.next_idle)->current_state, change_state((idle_worker_queue.next_idle)->current_state));
@@ -278,12 +448,12 @@ int master(int workers) {
 
                 // write problem to the pipe
                 /*write(fd_list[(idle_worker_queue.next_idle)->worker_number][1], mallocd_problem, mallocd_problem->size);*/
-                sf_send_problem((idle_worker_queue.next_idle)->pid, mallocd_problem);
+                sf_send_problem((idle_worker_queue.next_idle)->pid, new_problem);
 
                 FILE *write_file = fdopen(fd_list[(idle_worker_queue.next_idle)->worker_number][1], "w");
-                for(i = 0; i < mallocd_problem->size; i++){
+                for(i = 0; i < new_problem->size; i++){
 
-                    fputc(*((char *)mallocd_problem+i), write_file);
+                    fputc(*((char *)new_problem+i), write_file);
 
                 }
                 fflush(write_file);
