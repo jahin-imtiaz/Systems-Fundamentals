@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <string.h>
 
+/*A worker structure holds a workers current information */
 struct worker{
     int pid;
     int worker_number;
@@ -20,6 +21,7 @@ struct worker{
     struct worker *prev_idle;    //pointer in the idle_worker list
 };
 
+/*A signal structure holds information related to the signal received*/
 struct signals
 {
     int pid;
@@ -27,7 +29,4 @@ struct signals
     struct signals *next;
     struct signals *prev;
 };
-
-/*typedef void (*sighandler_t)(int);   //can now use sighandler_t SIGKILL*/
-
 #endif

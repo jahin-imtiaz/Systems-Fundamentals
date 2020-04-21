@@ -26,6 +26,7 @@ struct worker *dequeue_idle_worker();
 void continue_and_terminate_workers();
 int get_exit_abort_count();
 int is_success();
+void free_workers();
 
 struct signals signal_queue;             //maintain a data structure for signals
 struct worker worker_list_head;          //maintain a data structure for workers state
@@ -38,11 +39,11 @@ void sigchld_handler(int sig) /* SIGTERM handler */
 
     int old_errno = errno;
 
-    int status;
-    int pid = waitpid(-1, &status, (WNOHANG|WUNTRACED)|WCONTINUED);
-    enqueue_signal(pid, status);
-
-    debug("RECEIVED SIGCHLD FROM WORKER : %d",pid);
+    int status, pid;
+    while((pid = waitpid(-1, &status, (WNOHANG|WUNTRACED)|WCONTINUED)) > 0){
+        enqueue_signal(pid, status);
+        debug("RECEIVED SIGCHLD FROM WORKER : %d",pid);
+    }
 
     errno = old_errno;
 
@@ -61,9 +62,9 @@ int master(int workers) {
     int i, pid;
 
     //set the masks
-    sigset_t mask, prev_mask, old;
+    sigset_t mask, prev_mask/*, old*/;
     sigemptyset(&mask);
-    sigemptyset(&old);
+    /*sigemptyset(&old);*/
     sigaddset(&mask, SIGCHLD);
 
     int fd_list[workers][4];     //maintain a data structure for pipes
@@ -86,16 +87,13 @@ int master(int workers) {
             close(fd_list[i][1]);       //close opposite side of pipe 1
             close(fd_list[i][2]);       //close opposite side of pipe 2
 
-            //???????manage opening and closing of files
-            char **argv = NULL;          //??????????????????????????????????
+            char **argv = NULL;
             execv("bin/polya_worker", argv);
 
         }
         else{
-            while(1){
-                sigsuspend(&old);
-                break;
-            }
+
+            /*sigsuspend(&old);*/
 
             close(fd_list[i][0]);       //close opposite side of pipe 1
             close(fd_list[i][3]);       //close opposite side of pipe 2
@@ -166,7 +164,6 @@ int master(int workers) {
                         enqueue_idle_worker(tmp_worker);
 
                     }
-
                     //if the workers current state is CONTINUED, then it should be STOPPED now (missed the signal for running)
                     else if(tmp_worker->current_state == WORKER_CONTINUED){
 
@@ -218,12 +215,8 @@ int master(int workers) {
 
                                     sf_cancel((tmp->next)->pid);
 
-                                    while(1){
-
-                                        kill((tmp->next)->pid, SIGHUP);     //send SIGHUP signal to cancel the current job
-                                        sigsuspend(&old);
-                                        break;
-                                    }
+                                    kill((tmp->next)->pid, SIGHUP);     //send SIGHUP signal to cancel the current job
+                                    /*sigsuspend(&old);*/
 
                                 }
 
@@ -247,7 +240,6 @@ int master(int workers) {
                         free(result_header);
 
                     }
-
                     //if the workers current state is RUNNING, then it should be STOPPED now
                     //So, Read the result and post it and change the state of the worker to IDLE
                     else if(tmp_worker->current_state == WORKER_RUNNING){
@@ -296,12 +288,8 @@ int master(int workers) {
 
                                     sf_cancel((tmp->next)->pid);
 
-                                    while(1){
-
-                                        kill((tmp->next)->pid, SIGHUP);     //send SIGHUP signal to cancel the current job
-                                        sigsuspend(&old);
-                                        break;
-                                    }
+                                    kill((tmp->next)->pid, SIGHUP);     //send SIGHUP signal to cancel the current job
+                                    /*sigsuspend(&old);*/
 
                                 }
 
@@ -362,17 +350,12 @@ int master(int workers) {
                     (idle_worker_queue.next_idle)->current_problem = new_problem;
 
                     //change state of the worker from IDLE to CONTINUED
-                    debug("COMING HERE 1");
                     sf_change_state((idle_worker_queue.next_idle)->pid, (idle_worker_queue.next_idle)->current_state, change_state((idle_worker_queue.next_idle)->current_state));
                     (idle_worker_queue.next_idle)->current_state = WORKER_CONTINUED;
 
-                    while(1){
-
-                        //send SIGCONT signal
-                        kill((idle_worker_queue.next_idle)->pid, SIGCONT);
-                        sigsuspend(&old);
-                        break;
-                    }
+                    //send SIGCONT signal
+                    kill((idle_worker_queue.next_idle)->pid, SIGCONT);
+                    /*sigsuspend(&old);*/
 
                     // write problem to the pipe
                     /*write(fd_list[(idle_worker_queue.next_idle)->worker_number][1], mallocd_problem, mallocd_problem->size);*/
@@ -395,11 +378,9 @@ int master(int workers) {
             }
         }
         else{
-
-            debug("WAITING FOR IDLE COUNT TO BE EQUAL TO NWORKERS");
             //check if idle worker count is equal to the number of workers
             //if yes, break from the loop and terminate
-            if(get_idle_count() == workers){
+            if(get_idle_count() == (workers - get_exit_abort_count())){
 
                 break;
 
@@ -407,11 +388,9 @@ int master(int workers) {
         }
 
     }
-    debug("BEFORE TERMINATING");
     //terminate all the running workers
     //free all problems in the workers
     continue_and_terminate_workers();
-    debug("AFTER TERMINATING");
 
     while(get_exit_abort_count() != workers){        //while atleast one worker hasn't exited or aborted
 
@@ -460,18 +439,18 @@ int master(int workers) {
 
         }
     }
-
     //pipes can fail. so check it.
-
     //return EXIT_SUCCESS if all workers have exited normally, EXIT_FAILURE otherwise
     if(is_success()){
         //free  all workers first
+        free_workers();
 
         sf_end();
         return EXIT_SUCCESS;
     }
     else{
         //free  all workers first
+        free_workers();
 
         sf_end();
         return EXIT_FAILURE;
@@ -641,19 +620,16 @@ int get_idle_count(){
 
 void continue_and_terminate_workers(){
 
-    sigset_t old;
-    sigemptyset(&old);
+    /*sigset_t old;
+    sigemptyset(&old);*/
 
     struct worker *tmp = &worker_list_head;
 
     while(tmp->next != &worker_list_head){
 
-        while(1){
-            kill((tmp->next)->pid, SIGTERM);
-            kill((tmp->next)->pid, SIGCONT);
-            sigsuspend(&old);
-            break;
-        }
+        kill((tmp->next)->pid, SIGTERM);
+        kill((tmp->next)->pid, SIGCONT);
+        /*sigsuspend(&old);*/
 
         free((tmp->next)->current_problem);
         tmp = tmp->next;
@@ -690,7 +666,19 @@ int is_success(){
 
         tmp = tmp->next;
     }
-
     return 1;
+}
+
+void free_workers(){
+
+    struct worker* tmp;
+
+    while (worker_list_head.next != &worker_list_head)
+    {
+       tmp = worker_list_head.next;
+       worker_list_head.next = (worker_list_head.next)->next;
+       (worker_list_head.next)->prev = &worker_list_head;
+       free(tmp);
+    }
 
 }
