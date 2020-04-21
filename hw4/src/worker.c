@@ -47,6 +47,8 @@ int worker(void) {
 
     while(!sigterm_flag){
 
+        sighup_flag = 0;
+
         //read a problem
         struct problem *problem_header = malloc(sizeof(struct problem));
 
