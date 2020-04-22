@@ -42,7 +42,7 @@ void sigchld_handler(int sig) /* SIGTERM handler */
     int status, pid;
     while((pid = waitpid(-1, &status, (WNOHANG|WUNTRACED)|WCONTINUED)) > 0){
         enqueue_signal(pid, status);
-        debug("RECEIVED SIGCHLD FROM WORKER : %d",pid);
+        /*debug("RECEIVED SIGCHLD FROM WORKER : %d",pid);*/
     }
 
     errno = old_errno;
@@ -227,7 +227,6 @@ int master(int workers) {
                         }
 
                         //free the problem itself and set current_problem of the worker to be NULL because it is done with the current problem
-                        free(tmp_worker->current_problem);
                         tmp_worker->current_problem = NULL;
 
                         //change state from STOPPED to IDLE
@@ -275,6 +274,7 @@ int master(int workers) {
                         sf_recv_result(tmp_worker->pid, result_header);
 
                         //check result
+                        debug("PROBLEM ADDRESS %p", tmp_worker->current_problem);
                         int rvalue = post_result(result_header, tmp_worker->current_problem);
 
                         //if correct, cancel all jobs
@@ -373,6 +373,8 @@ int master(int workers) {
                     //remove the worker from the idle list
                     dequeue_idle_worker();
 
+                    new_problem = NULL;
+
                 }
 
             }
@@ -410,8 +412,22 @@ int master(int workers) {
 
                 if(WEXITSTATUS(status2) == 0){   //exited normally
 
-                    sf_change_state(tmp_worker2->pid, tmp_worker2->current_state, WORKER_EXITED);
-                    tmp_worker2->current_state = WORKER_EXITED;
+                    //was in IDLE state before
+                    if(tmp_worker2->current_state == WORKER_IDLE){
+
+                        sf_change_state(tmp_worker2->pid, tmp_worker2->current_state, WORKER_RUNNING);
+                        tmp_worker2->current_state = WORKER_RUNNING;
+
+                        sf_change_state(tmp_worker2->pid, tmp_worker2->current_state, WORKER_EXITED);
+                        tmp_worker2->current_state = WORKER_EXITED;
+                    }
+                    //was in RUNNING state before
+                    else if(tmp_worker2->current_state == WORKER_RUNNING){
+
+                        sf_change_state(tmp_worker2->pid, tmp_worker2->current_state, WORKER_EXITED);
+                        tmp_worker2->current_state = WORKER_EXITED;
+
+                    }
 
                 }
                 else{   //or exited abnormally
@@ -631,7 +647,6 @@ void continue_and_terminate_workers(){
         kill((tmp->next)->pid, SIGCONT);
         /*sigsuspend(&old);*/
 
-        free((tmp->next)->current_problem);
         tmp = tmp->next;
 
     }
