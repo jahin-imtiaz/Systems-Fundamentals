@@ -73,9 +73,9 @@ int worker(void) {
         struct result *prob_result = (solvers[problem_header->type].solve)(problem_header, &sighup_flag); //solve the problem
 
 
-        if(prob_result != NULL){    //NULL if solver is cancelled or malloc error
+        if(prob_result != NULL && !sighup_flag){    //NULL if solver is cancelled or malloc error
 
-            /*write(1, prob_result, prob_result->size);    //write the result*/
+            //write the result*/
             for(i = 0; i < prob_result->size; i++){
 
                 fputc(*((char *)prob_result+i), stdout);
@@ -85,8 +85,6 @@ int worker(void) {
 
         }
         else{
-
-            sighup_flag = 0;    //reset the sighup flag
 
             struct result tmp;  //write an empty result with failed flag enable
             tmp.size = sizeof(struct result);
