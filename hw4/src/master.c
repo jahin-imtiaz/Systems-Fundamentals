@@ -51,14 +51,6 @@ void sigchld_handler(int sig) /* SIGTERM handler */
 
 }
 
-void sigpipe_handler(int sig){
-
-    int old_errno = errno;
-
-
-    errno = old_errno;
-}
-
 int master(int workers) {
     // TO BE IMPLEMENTED
     sf_start();
@@ -109,6 +101,9 @@ int master(int workers) {
             struct worker *nworker = malloc(sizeof(struct worker));
             nworker->pid = pid;                          //store the pid of the worker process
             nworker->worker_number = i;                  //store the worker number
+
+            nworker->read_file =  fdopen(fd_list[i][2], "r");//open read files
+            nworker->write_file=  fdopen(fd_list[i][1], "w");//open write files
 
             sf_change_state(pid, 0, WORKER_STARTED);
             nworker->current_state = WORKER_STARTED;     //change the current state
@@ -336,11 +331,10 @@ void read_post_sendSigHup(struct worker *tmp_worker, int fd_list[][4]){
     //read result from the pipe
     struct result *result_header = malloc(sizeof(struct result));
 
-    FILE *read_file = fdopen(fd_list[tmp_worker->worker_number][2], "r");
     int i;
     for(i = 0; i < sizeof(struct result); i++){
 
-        *((char *)result_header+i) = fgetc(read_file);
+        *((char *)result_header+i) = fgetc(tmp_worker->read_file);
 
     }
 
@@ -350,7 +344,7 @@ void read_post_sendSigHup(struct worker *tmp_worker, int fd_list[][4]){
 
     for(i = 0; i < (result_size - sizeof(struct result)); i++){
 
-        *((char *)result_header+(sizeof(struct result)+i)) = fgetc(read_file);
+        *((char *)result_header+(sizeof(struct result)+i)) = fgetc(tmp_worker->read_file);
 
     }
 
@@ -384,7 +378,7 @@ void read_post_sendSigHup(struct worker *tmp_worker, int fd_list[][4]){
 
             if((tmp->next)->worker_number != tmp_worker->worker_number ){   //if its not the current worker
 
-                //only cancel those workers that are in continued or running state.
+                //only cancel those workers that are in continued or running
                 if((tmp->next)->current_state != WORKER_STARTED && (tmp->next)->current_state != WORKER_IDLE){
 
                     sf_cancel((tmp->next)->pid);
@@ -435,14 +429,13 @@ void try_assign_problem(int workers, int fd_list[][4]){
             // write problem to the pipe
             sf_send_problem((idle_worker_queue.next_idle)->pid, new_problem);
 
-            FILE *write_file = fdopen(fd_list[(idle_worker_queue.next_idle)->worker_number][1], "w");
             int i;
             for(i = 0; i < new_problem->size; i++){
 
-                fputc(*((char *)new_problem+i), write_file);
+                fputc(*((char *)new_problem+i), (idle_worker_queue.next_idle)->write_file);
 
             }
-            fflush(write_file);
+            fflush((idle_worker_queue.next_idle)->write_file);
 
             //remove the worker from the idle list
             dequeue_idle_worker();
@@ -671,6 +664,10 @@ void free_workers(){
     while (worker_list_head.next != &worker_list_head)
     {
        tmp = worker_list_head.next;
+
+       fclose(tmp->read_file);
+       fclose(tmp->write_file);
+
        worker_list_head.next = (worker_list_head.next)->next;
        (worker_list_head.next)->prev = &worker_list_head;
        free(tmp);

@@ -52,7 +52,7 @@ int worker(void) {
         //read a problem
         struct problem *problem_header = malloc(sizeof(struct problem));
 
-        /*read(0, problem_header, sizeof(struct problem));      //read the header*/
+        //read the header*/
         for(i = 0; i < sizeof(struct problem); i++){
 
             *((char *)problem_header+i) = fgetc(stdin);
@@ -63,7 +63,7 @@ int worker(void) {
 
         problem_header = realloc(problem_header, prob_size);  //realloc new size to fit the whole problem
 
-        /*read(0, ((char *)problem_header)+sizeof(struct problem), (prob_size - sizeof(struct problem)));//read the whole problem*/
+        //read the whole problem
         for(i = 0; i < (prob_size - sizeof(struct problem)); i++){
 
             *(((char *)problem_header)+(sizeof(struct problem)+i)) = fgetc(stdin);
@@ -75,7 +75,7 @@ int worker(void) {
 
         if(prob_result != NULL && !sighup_flag){    //NULL if solver is cancelled or malloc error
 
-            //write the result*/
+            //write the result
             for(i = 0; i < prob_result->size; i++){
 
                 fputc(*((char *)prob_result+i), stdout);
@@ -89,7 +89,6 @@ int worker(void) {
             struct result tmp;  //write an empty result with failed flag enable
             tmp.size = sizeof(struct result);
             tmp.failed = 1;
-            /*write(1,  &tmp, sizeof(struct result));*/
             for(i = 0; i < sizeof(struct result); i++){
 
                 fputc(*((char *)&tmp+i), stdout);

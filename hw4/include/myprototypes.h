@@ -14,6 +14,9 @@ struct worker{
     int current_state;
     struct problem *current_problem;
 
+    FILE *read_file;
+    FILE *write_file;
+
     struct worker *next;    //pointer in the worker list
     struct worker *prev;    //pointer in the worker list
 
