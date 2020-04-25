@@ -140,8 +140,6 @@ int master(int workers) {
 
                 }
                 else if(WIFSIGNALED(status)){       //aborted because of a signal
-                    debug("ABORTED 4");
-                    debug("Signal Number: %d", WTERMSIG(status));
                     sf_change_state(tmp_worker->pid, tmp_worker->current_state, WORKER_ABORTED);
                     tmp_worker->current_state = WORKER_ABORTED;
 
@@ -160,7 +158,6 @@ int master(int workers) {
 
                         //add this worker to the idle list
                         enqueue_idle_worker(tmp_worker);
-                        debug("IDLE COUNT : %d", get_idle_count());
 
                         assign_Problem(workers, fd_list);
 
@@ -272,7 +269,6 @@ int master(int workers) {
                 }
                 else if(WIFSIGNALED(status2)){       //aborted because of a signal
 
-                    debug("ABORTED 2");
                     sf_change_state(tmp_worker2->pid, tmp_worker2->current_state, WORKER_ABORTED);
                     tmp_worker2->current_state = WORKER_ABORTED;
 
@@ -361,7 +357,6 @@ void read_post_sendSigHup(struct worker *tmp_worker, int fd_list[][4]){
 
         sf_recv_result(tmp_worker->pid, result_header);
         //check result
-        debug("POST RESULT 1");
         rvalue = post_result(result_header, tmp_worker->current_problem);
 
     }
