@@ -26,7 +26,7 @@ void *pbx_client_service(void *arg){
 
         string[cur_str_length++] = c;
 
-        if(base_size == cur_str_length){
+        if(base_size == cur_str_length){    //check if our current buffer is full or not
 
             base_size += 15;
             string = realloc(string, base_size);
@@ -39,7 +39,7 @@ void *pbx_client_service(void *arg){
 
             execute_command(string, clientTU);
 
-            base_size = 15;
+            base_size = 15;                     //update the buffer informations here
             cur_str_length = 0;
             free(string);
             string = malloc(base_size);
@@ -59,7 +59,7 @@ void execute_command(char *string, TU *clientTU){
     //get the first word in the string
     char *word = strtok(string , " ");
 
-    if(strcmp(word, tu_command_names[TU_PICKUP_CMD]) == 0){
+    if(strcmp(word, tu_command_names[TU_PICKUP_CMD]) == 0){     //if pickup command
 
         //if there is any more token, then this message is invalid, otherwise valid
         if(strtok(NULL, " ") == NULL){
@@ -67,7 +67,7 @@ void execute_command(char *string, TU *clientTU){
         }
 
     }
-    else if(strcmp(word, tu_command_names[TU_HANGUP_CMD]) == 0){
+    else if(strcmp(word, tu_command_names[TU_HANGUP_CMD]) == 0){//if hangup command
 
         //if there is any more token, then this message is invalid
         if(strtok(NULL, " ") == NULL){
@@ -75,7 +75,7 @@ void execute_command(char *string, TU *clientTU){
         }
 
     }
-    else if(strcmp(word, tu_command_names[TU_DIAL_CMD]) == 0){
+    else if(strcmp(word, tu_command_names[TU_DIAL_CMD]) == 0){  //if dial # command
 
         char *scndWord;
         if((scndWord= strtok(NULL, " ")) != NULL){
@@ -85,7 +85,7 @@ void execute_command(char *string, TU *clientTU){
         }
 
     }
-    else if(strcmp(word, tu_command_names[TU_CHAT_CMD]) == 0){
+    else if(strcmp(word, tu_command_names[TU_CHAT_CMD]) == 0){  //if chat ... command
 
         char *msg;
         if((msg = strtok(NULL, "\0")) != NULL){
