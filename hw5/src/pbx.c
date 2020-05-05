@@ -253,6 +253,7 @@ int tu_chat(TU *tu, char *msg){
         //notify the sender of its current state
         send_notification(TU_CONNECTED, tu->fileno, (tu->connected_tu)->extention);
 
+        return 0;
     }
     else{
         return -1;
