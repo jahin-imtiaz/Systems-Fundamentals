@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 void send_notification(int state, int fd, int connected_tu);
+int valid_extension(int ext);
 
 struct pbx{
 
@@ -192,8 +193,72 @@ int tu_hangup(TU *tu){
 
 }
 
-int tu_dial(TU *tu, int ext);
-int tu_chat(TU *tu, char *msg);
+int tu_dial(TU *tu, int ext){
+
+    if(valid_extension(ext)){
+
+        if((pbx->extension_array[ext]) != NULL){
+
+            if(tu->current_state == TU_DIAL_TONE){
+
+                if((pbx->extension_array[ext])->current_state == TU_ON_HOOK){
+
+                    tu->current_state = TU_RING_BACK;
+                    tu->ringing_tu = (pbx->extension_array[ext]);
+
+                    (pbx->extension_array[ext])->current_state = TU_RINGING;
+                    (pbx->extension_array[ext])->ringing_tu = tu;
+
+                    send_notification(TU_RING_BACK, tu->fileno, 0);
+                    send_notification(TU_RINGING, (pbx->extension_array[ext])->fileno, 0);
+
+                }
+                else{
+
+                    tu->current_state = TU_BUSY_SIGNAL;
+                    send_notification(TU_BUSY_SIGNAL, tu->fileno, 0);
+
+                }
+
+            }
+            else{
+
+                send_notification(tu->current_state, tu->fileno, 0);
+
+            }
+
+        }
+        else{
+
+            tu->current_state = TU_ERROR;
+            send_notification(TU_ERROR, tu->fileno, 0);
+
+        }
+
+        return 0;
+
+    }
+    else return -1;
+
+}
+int tu_chat(TU *tu, char *msg){
+
+    if(tu->current_state == TU_CONNECTED){
+
+        //send the specified msg to the peer tu
+        write((tu->connected_tu)->fileno, "CHAT ", strlen("CHAT "));
+        write((tu->connected_tu)->fileno, msg, strlen(msg));
+        write((tu->connected_tu)->fileno, EOL, strlen(EOL));
+
+        //notify the sender of its current state
+        send_notification(TU_CONNECTED, tu->fileno, (tu->connected_tu)->extention);
+
+    }
+    else{
+        return -1;
+    }
+
+}
 
 void send_notification(int state, int fd, int connected_tu){
 
@@ -239,4 +304,12 @@ void send_notification(int state, int fd, int connected_tu){
 
     }
 
+}
+
+int valid_extension(int ext){
+
+    if(ext < 0 || ext > PBX_MAX_EXTENSIONS){
+        return 0;
+    }
+    else return 1;
 }
