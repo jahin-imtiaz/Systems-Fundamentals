@@ -33,6 +33,9 @@ PBX *pbx_init(){
 
 void pbx_shutdown(PBX *pbx){
     //TODO
+    //somehow get the listenfd
+
+
 }
 
 TU *pbx_register(PBX *pbx, int fd){
@@ -261,6 +264,10 @@ int tu_chat(TU *tu, char *msg){
 
 }
 
+/*
+*Sends a notification of the current state "state" to the TU indicated by its fd.
+*if state is TU_CONNECTED, then "connected_tu" is the extension of the other TU.
+*/
 void send_notification(int state, int fd, int connected_tu){
 
     //TAKE CARE OF WHICH TO USE: DPRINTF() OR SPRINTF()

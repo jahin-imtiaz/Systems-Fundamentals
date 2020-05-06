@@ -37,7 +37,7 @@ int main(int argc, char* argv[]){
     // on which the server should listen.
     int option;
     char *port;
-    while((option = getopt(argc, argv, "p:")) != EOF) {
+    while((option = getopt(argc, argv, "p:")) != EOF) {         //get the port # from the command line
         switch(option) {
             case 'p':
                 port = optarg++;
@@ -62,22 +62,26 @@ int main(int argc, char* argv[]){
     // a SIGHUP handler, so that receipt of SIGHUP will perform a clean
     // shutdown of the server.
 
-    struct sigaction sig;
-    sig.sa_handler = sigchld_handler;
-    sigaction(SIGHUP, &sig, NULL);
+    struct sigaction sig1;              //install SIGHUP handler
+    sig1.sa_handler = sigchld_handler;
+    sigaction(SIGHUP, &sig1, NULL);
+
+    struct sigaction sig2;              //install SIGPIPE handler
+    sig2.sa_handler = SIG_IGN;
+    sigaction(SIGPIPE, &sig2, NULL);
 
     int listenfd, *connfdp;
     socklen_t clientlen;
     struct sockaddr_storage clientaddr;
     pthread_t tid;
 
-    listenfd = Open_listenfd(port);
+    listenfd = Open_listenfd(port);     //open socket, bind and listen to the listenfd
 
     while (1) {
         clientlen=sizeof(struct sockaddr_storage);
         connfdp = malloc(sizeof(int));
-        *connfdp = Accept(listenfd, (SA *) &clientaddr, &clientlen);
-        Pthread_create(&tid, NULL, pbx_client_service, connfdp);
+        *connfdp = Accept(listenfd, (SA *) &clientaddr, &clientlen);    //accept connections
+        Pthread_create(&tid, NULL, pbx_client_service, connfdp);        //create threads for each connection
     }
 
     fprintf(stderr, "You have to finish implementing main() "
