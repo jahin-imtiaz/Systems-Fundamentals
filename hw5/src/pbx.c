@@ -1,11 +1,20 @@
 #include "pbx.h"
+#include "csapp.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <semaphore.h>
 
 void send_notification(int state, int fd, int connected_tu);
 int valid_extension(int ext);
+
+int extensions_cnt;             //used to count current number of registered extensions
+sem_t extensions_cnt_mutex;
+
+int all_cancelled_flag;         //used to indicate all extensions are unregistered or not
+sem_t all_cancelled_flag_mutex;
 
 struct pbx{
 
@@ -28,13 +37,28 @@ PBX *pbx_init(){
 
     PBX *pb = malloc(sizeof(PBX));
 
+    //initialize the mutexes
+    sem_init(&extensions_cnt_mutex, 0, 1);
+    sem_init(&all_cancelled_flag_mutex, 0 , 1);
+
     return pb;
 }
 
 void pbx_shutdown(PBX *pbx){
     //TODO
-    //somehow get the listenfd
+    //USE MUTEX
+    int i;
+    for(i = 0; i < PBX_MAX_EXTENSIONS; i++){
+        if(pbx->extension_array[i]  != NULL){
+            shutdown((pbx->extension_array[i])->fileno, SHUT_RDWR);
+        }
+    }
+    //USE MUTEX
 
+    //wait for all server threads to terminate
+    P(&all_cancelled_flag_mutex);//wait until you have access to the all_cancelled_flag
+    free(pbx);      //free the pbx object itself
+    V(&all_cancelled_flag_mutex);
 
 }
 
@@ -43,6 +67,10 @@ TU *pbx_register(PBX *pbx, int fd){
     TU *tu = malloc(sizeof(TU));
 
     if((pbx == NULL) || (tu == NULL)){
+
+        if(tu != NULL){        //only pbx was null
+            free(tu);
+        }
         return NULL;
     }
     else{
@@ -55,6 +83,14 @@ TU *pbx_register(PBX *pbx, int fd){
         //USE MUTEX
         pbx->extension_array[fd] = tu;  //add this TU in the pbx array
         //USER MUTEX
+
+        P(&extensions_cnt_mutex);
+        extensions_cnt++;
+        if(extensions_cnt == 1){        //first registered TU
+            //lock the mutex that will only be unlocked when last TU deregisters
+            P(&all_cancelled_flag_mutex);
+        }
+        V(&extensions_cnt_mutex);
 
         return tu;
     }
@@ -71,6 +107,16 @@ int pbx_unregister(PBX *pbx, TU *tu){
 
         pbx->extension_array[tu->extention] = NULL;
         free(tu);
+
+        P(&extensions_cnt_mutex);
+        extensions_cnt--;
+        if(extensions_cnt == 0){        //last de-registered TU
+            //release the lock of the mutex that will now indicate that All TU is deregistered
+            //if you have access to this lock
+            V(&all_cancelled_flag_mutex);
+        }
+        V(&extensions_cnt_mutex);
+
         return 0;
 
     }

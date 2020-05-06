@@ -35,6 +35,7 @@ int main(int argc, char* argv[]){
     // Option processing should be performed here.
     // Option '-p <port>' is required in order to specify the port number
     // on which the server should listen.
+    printf("%lu\n", (long unsigned)getpid());
     int option;
     char *port;
     while((option = getopt(argc, argv, "p:")) != EOF) {         //get the port # from the command line
@@ -87,7 +88,7 @@ int main(int argc, char* argv[]){
     fprintf(stderr, "You have to finish implementing main() "
 	    "before the PBX server will function.\n");
 
-    /*terminate(EXIT_FAILURE);*/
+    terminate(EXIT_FAILURE);
 }
 
 /*

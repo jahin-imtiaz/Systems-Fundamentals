@@ -56,7 +56,6 @@ void *pbx_client_service(void *arg){
 
 void execute_command(char *string, TU *clientTU){
 
-    printf("RECEIVED : %s\n", string);
     //get the first word in the string
     char *saveptr = string;
     char *word = strtok_r(string , " ", &saveptr);
