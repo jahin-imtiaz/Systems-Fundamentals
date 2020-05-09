@@ -220,7 +220,6 @@ int tu_pickup(TU *tu){
 }
 
 int tu_hangup(TU *tu){
-
     if(tu == NULL){
         return -1;
     }
@@ -228,7 +227,9 @@ int tu_hangup(TU *tu){
 
         //acquire lock either for one or two TUs depending on the state
         if(tu->ringing_tu == NULL){     //acquire one lock
+
             P(&tu_mutex_array[tu->extention]);
+
         }
         else{   //acquire both locks in order
            if(tu->extention < (tu->ringing_tu)->extention){
@@ -238,13 +239,10 @@ int tu_hangup(TU *tu){
 
             }
             else{
-
                 P(&tu_mutex_array[(tu->ringing_tu)->extention]);
-                P(&tu_mutex_array[tu->extention]);
 
             }
         }
-
         if(tu->current_state == TU_CONNECTED){
 
             tu->current_state = TU_ON_HOOK;
@@ -322,17 +320,18 @@ int tu_dial(TU *tu, int ext){
         if((pbx->extension_array[ext]) != NULL){
 
             //lock both TU's in order
-            if(tu->extention < (pbx->extension_array[ext])->extention){
+            if(tu->extention == (pbx->extension_array[ext])->extention){   //hold one lock if both TUs refers to the same tu
 
                 P(&tu_mutex_array[tu->extention]);
-                P(&tu_mutex_array[(pbx->extension_array[ext])->extention]);
 
             }
+            else if(tu->extention < (pbx->extension_array[ext])->extention){
+                P(&tu_mutex_array[tu->extention]);
+                P(&tu_mutex_array[(pbx->extension_array[ext])->extention]);
+            }
             else{
-
                 P(&tu_mutex_array[(pbx->extension_array[ext])->extention]);
                 P(&tu_mutex_array[tu->extention]);
-
             }
             if(tu->current_state == TU_DIAL_TONE){
 
@@ -362,16 +361,28 @@ int tu_dial(TU *tu, int ext){
 
             }
             //Unlock both TU's
-            V(&tu_mutex_array[tu->extention]);
-            V(&tu_mutex_array[(pbx->extension_array[ext])->extention]);
+            if(tu->extention == (pbx->extension_array[ext])->extention){   //unlock one if both TUs refers to the same tu
+
+                V(&tu_mutex_array[tu->extention]);
+
+            }
+            else{
+                V(&tu_mutex_array[tu->extention]);
+                V(&tu_mutex_array[(pbx->extension_array[ext])->extention]);
+            }
 
         }
         else{
 
             P(&tu_mutex_array[tu->extention]);
 
-            tu->current_state = TU_ERROR;
-            send_notification(TU_ERROR, tu->fileno, 0);
+            if(tu->current_state != TU_DIAL_TONE){   //current state is anything other than TU_DIAL_TONE,
+                send_notification(tu->current_state, tu->fileno, 0);
+            }
+            else{
+                tu->current_state = TU_ERROR;
+                send_notification(TU_ERROR, tu->fileno, 0);
+            }
 
             V(&tu_mutex_array[tu->extention]);
 

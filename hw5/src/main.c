@@ -35,7 +35,6 @@ int main(int argc, char* argv[]){
     // Option processing should be performed here.
     // Option '-p <port>' is required in order to specify the port number
     // on which the server should listen.
-    printf("%lu\n", (long unsigned)getpid());
     int option;
     char *port;
     while((option = getopt(argc, argv, "p:")) != EOF) {         //get the port # from the command line

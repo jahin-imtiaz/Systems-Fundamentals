@@ -23,7 +23,6 @@ void *pbx_client_service(void *arg){
 
     int c;
     while((c=fgetc(file)) != EOF){              //while the connection is not closed
-
         string[cur_str_length++] = c;           //store the character read in the buffer
 
         if(base_size == cur_str_length){        //check if our current buffer is full or not, realloc storage if full
@@ -47,16 +46,12 @@ void *pbx_client_service(void *arg){
 
     }
     free(string);                               //free the buffer
-
     pbx_unregister(pbx, clientTU);              //unregister the TU
-
     Close(connfd);                              //close the connection fd
     return NULL;
 }
 
 void execute_command(char *string, TU *clientTU){
-
-    //get the first word in the string
     char *saveptr = string;
     char *word = strtok_r(string , " ", &saveptr);
 
@@ -100,4 +95,5 @@ void execute_command(char *string, TU *clientTU){
         }
 
     }
+
 }
