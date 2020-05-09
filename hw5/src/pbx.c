@@ -16,6 +16,10 @@ sem_t extensions_cnt_mutex;
 int all_cancelled_flag;         //used to indicate all extensions are unregistered or not
 sem_t all_cancelled_flag_mutex;
 
+sem_t tu_mutex_array[PBX_MAX_EXTENSIONS]; //Used to lock each TU's individually
+
+sem_t pbx_mutex;
+
 struct pbx{
 
     TU *extension_array[PBX_MAX_EXTENSIONS];
@@ -41,19 +45,27 @@ PBX *pbx_init(){
     sem_init(&extensions_cnt_mutex, 0, 1);
     sem_init(&all_cancelled_flag_mutex, 0 , 1);
 
+    sem_init(&pbx_mutex, 0, 1);
+
+    int j;
+    for(j = 0; j < PBX_MAX_EXTENSIONS; j++){
+        sem_init(&tu_mutex_array[j], 0, 1);
+    }
+
     return pb;
 }
 
 void pbx_shutdown(PBX *pbx){
     //TODO
-    //USE MUTEX
+
+    P(&pbx_mutex);
     int i;
     for(i = 0; i < PBX_MAX_EXTENSIONS; i++){
         if(pbx->extension_array[i]  != NULL){
             shutdown((pbx->extension_array[i])->fileno, SHUT_RDWR);
         }
     }
-    //USE MUTEX
+    V(&pbx_mutex);
 
     //wait for all server threads to terminate
     P(&all_cancelled_flag_mutex);//wait until you have access to the all_cancelled_flag
@@ -64,6 +76,7 @@ void pbx_shutdown(PBX *pbx){
 
 TU *pbx_register(PBX *pbx, int fd){
 
+    P(&pbx_mutex);
     TU *tu = malloc(sizeof(TU));
 
     if((pbx == NULL) || (tu == NULL)){
@@ -71,6 +84,7 @@ TU *pbx_register(PBX *pbx, int fd){
         if(tu != NULL){        //only pbx was null
             free(tu);
         }
+        V(&pbx_mutex);
         return NULL;
     }
     else{
@@ -91,7 +105,7 @@ TU *pbx_register(PBX *pbx, int fd){
             P(&all_cancelled_flag_mutex);
         }
         V(&extensions_cnt_mutex);
-
+        V(&pbx_mutex);
         return tu;
     }
 
@@ -99,7 +113,7 @@ TU *pbx_register(PBX *pbx, int fd){
 
 int pbx_unregister(PBX *pbx, TU *tu){
 
-    //USE MUTEX
+    P(&pbx_mutex);
     if((pbx == NULL) || (tu == NULL) || (pbx->extension_array[tu->extention] == NULL)){
         return -1;
     }
@@ -120,11 +134,12 @@ int pbx_unregister(PBX *pbx, TU *tu){
         return 0;
 
     }
-    //USE MUTEX
+    V(&pbx_mutex);
 
 }
 
 int tu_fileno(TU *tu){
+
 
     if(tu != NULL){
         return tu->fileno;
@@ -150,6 +165,25 @@ int tu_pickup(TU *tu){
         return -1;
     }
     else{
+        //acquire lock either for one or two TUs depending on the state
+        if(tu->ringing_tu == NULL){     //acquire one lock
+            P(&tu_mutex_array[tu->extention]);
+        }
+        else{   //acquire both locks in order
+           if(tu->extention < (tu->ringing_tu)->extention){
+
+                P(&tu_mutex_array[tu->extention]);
+                P(&tu_mutex_array[(tu->ringing_tu)->extention]);
+
+            }
+            else{
+
+                P(&tu_mutex_array[(tu->ringing_tu)->extention]);
+                P(&tu_mutex_array[tu->extention]);
+
+            }
+        }
+
         if(tu->current_state == TU_ON_HOOK){
 
             tu->current_state = TU_DIAL_TONE;
@@ -171,6 +205,15 @@ int tu_pickup(TU *tu){
             send_notification(tu->current_state, tu->fileno, 0);
         }
 
+        //unlock either for one or two TUs depending on the state
+        if(tu->ringing_tu == NULL){     //give away one lock
+            V(&tu_mutex_array[tu->extention]);
+        }
+        else{   //giva away both locks in order
+
+            V(&tu_mutex_array[(tu->ringing_tu)->extention]);
+            V(&tu_mutex_array[tu->extention]);
+        }
         return 0;
     }
 
@@ -182,6 +225,25 @@ int tu_hangup(TU *tu){
         return -1;
     }
     else{
+
+        //acquire lock either for one or two TUs depending on the state
+        if(tu->ringing_tu == NULL){     //acquire one lock
+            P(&tu_mutex_array[tu->extention]);
+        }
+        else{   //acquire both locks in order
+           if(tu->extention < (tu->ringing_tu)->extention){
+
+                P(&tu_mutex_array[tu->extention]);
+                P(&tu_mutex_array[(tu->ringing_tu)->extention]);
+
+            }
+            else{
+
+                P(&tu_mutex_array[(tu->ringing_tu)->extention]);
+                P(&tu_mutex_array[tu->extention]);
+
+            }
+        }
 
         if(tu->current_state == TU_CONNECTED){
 
@@ -237,6 +299,16 @@ int tu_hangup(TU *tu){
 
         }
 
+        //unlock either for one or two TUs depending on the state
+        if(tu->ringing_tu == NULL){     //give away one lock
+            V(&tu_mutex_array[tu->extention]);
+        }
+        else{   //giva away both locks in order
+
+            V(&tu_mutex_array[(tu->ringing_tu)->extention]);
+            V(&tu_mutex_array[tu->extention]);
+        }
+
         return 0;
     }
 
@@ -246,8 +318,22 @@ int tu_dial(TU *tu, int ext){
 
     if(valid_extension(ext)){
 
+        P(&pbx_mutex);
         if((pbx->extension_array[ext]) != NULL){
 
+            //lock both TU's in order
+            if(tu->extention < (pbx->extension_array[ext])->extention){
+
+                P(&tu_mutex_array[tu->extention]);
+                P(&tu_mutex_array[(pbx->extension_array[ext])->extention]);
+
+            }
+            else{
+
+                P(&tu_mutex_array[(pbx->extension_array[ext])->extention]);
+                P(&tu_mutex_array[tu->extention]);
+
+            }
             if(tu->current_state == TU_DIAL_TONE){
 
                 if((pbx->extension_array[ext])->current_state == TU_ON_HOOK){
@@ -275,15 +361,23 @@ int tu_dial(TU *tu, int ext){
                 send_notification(tu->current_state, tu->fileno, 0);
 
             }
+            //Unlock both TU's
+            V(&tu_mutex_array[tu->extention]);
+            V(&tu_mutex_array[(pbx->extension_array[ext])->extention]);
 
         }
         else{
 
+            P(&tu_mutex_array[tu->extention]);
+
             tu->current_state = TU_ERROR;
             send_notification(TU_ERROR, tu->fileno, 0);
 
+            V(&tu_mutex_array[tu->extention]);
+
         }
 
+        V(&pbx_mutex);
         return 0;
 
     }
@@ -291,6 +385,8 @@ int tu_dial(TU *tu, int ext){
 
 }
 int tu_chat(TU *tu, char *msg){
+
+    P(&tu_mutex_array[tu->extention]);
 
     if(tu->current_state == TU_CONNECTED){
 
@@ -302,9 +398,13 @@ int tu_chat(TU *tu, char *msg){
         //notify the sender of its current state
         send_notification(TU_CONNECTED, tu->fileno, (tu->connected_tu)->extention);
 
+        V(&tu_mutex_array[tu->extention]);
         return 0;
     }
     else{
+        //notify the sender of its current state
+        send_notification(tu->current_state, tu->fileno, 0);
+        V(&tu_mutex_array[tu->extention]);
         return -1;
     }
 

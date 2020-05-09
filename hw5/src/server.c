@@ -94,6 +94,10 @@ void execute_command(char *string, TU *clientTU){
             tu_chat(clientTU, msg);
 
         }
+        else{
+            msg = "";
+            tu_chat(clientTU, msg);
+        }
 
     }
 }
