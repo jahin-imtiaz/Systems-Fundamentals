@@ -49,6 +49,7 @@ PBX *pbx_init(){
 
     int j;
     for(j = 0; j < PBX_MAX_EXTENSIONS; j++){
+        pb->extension_array[j] = NULL;
         sem_init(&tu_mutex_array[j], 0, 1);
     }
 
@@ -90,6 +91,8 @@ TU *pbx_register(PBX *pbx, int fd){
         tu->current_state = TU_ON_HOOK;
         tu->extention = fd;
         tu->fileno = fd;
+        tu->ringing_tu = NULL;
+        tu->connected_tu = NULL;
 
         send_notification(TU_ON_HOOK, fd, 0);
 
