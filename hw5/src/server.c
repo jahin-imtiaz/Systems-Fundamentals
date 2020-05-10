@@ -35,7 +35,6 @@ void *pbx_client_service(void *arg){
         if(strstr(string, EOL)){    //message read complete, if EOL found the buffer
 
             string[cur_str_length-2] = '\0';    //insert null character to indicate end of string
-
             execute_command(string, clientTU);  //execute command from the message
 
             base_size = 15;                     //update the buffer informations here
@@ -52,11 +51,10 @@ void *pbx_client_service(void *arg){
 }
 
 void execute_command(char *string, TU *clientTU){
+
     char *saveptr = string;
     char *word = strtok_r(string , " ", &saveptr);
-
     if(strcmp(word, tu_command_names[TU_PICKUP_CMD]) == 0){     //if pickup command
-
         //if there is any more token, then this message is invalid, otherwise valid
         if(strtok_r(NULL, " ", &saveptr) == NULL){
             tu_pickup(clientTU);
@@ -64,7 +62,6 @@ void execute_command(char *string, TU *clientTU){
 
     }
     else if(strcmp(word, tu_command_names[TU_HANGUP_CMD]) == 0){//if hangup command
-
         //if there is any more token, then this message is invalid
         if(strtok_r(NULL, " ", &saveptr) == NULL){
             tu_hangup(clientTU);
@@ -72,7 +69,6 @@ void execute_command(char *string, TU *clientTU){
 
     }
     else if(strcmp(word, tu_command_names[TU_DIAL_CMD]) == 0){  //if dial # command
-
         char *scndWord;
         if((scndWord= strtok_r(NULL, " ", &saveptr)) != NULL){
 
@@ -82,10 +78,8 @@ void execute_command(char *string, TU *clientTU){
 
     }
     else if(strcmp(word, tu_command_names[TU_CHAT_CMD]) == 0){  //if chat ... command
-
         char *msg;
         if((msg = strtok_r(NULL, "\0", &saveptr)) != NULL){
-
             tu_chat(clientTU, msg);
 
         }
@@ -95,5 +89,4 @@ void execute_command(char *string, TU *clientTU){
         }
 
     }
-
 }

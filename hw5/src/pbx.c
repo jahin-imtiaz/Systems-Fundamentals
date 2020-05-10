@@ -75,7 +75,6 @@ void pbx_shutdown(PBX *pbx){
 }
 
 TU *pbx_register(PBX *pbx, int fd){
-
     P(&pbx_mutex);
     TU *tu = malloc(sizeof(TU));
 
@@ -112,9 +111,9 @@ TU *pbx_register(PBX *pbx, int fd){
 }
 
 int pbx_unregister(PBX *pbx, TU *tu){
-
     P(&pbx_mutex);
     if((pbx == NULL) || (tu == NULL) || (pbx->extension_array[tu->extention] == NULL)){
+        V(&pbx_mutex);
         return -1;
     }
     else{
@@ -130,11 +129,10 @@ int pbx_unregister(PBX *pbx, TU *tu){
             V(&all_cancelled_flag_mutex);
         }
         V(&extensions_cnt_mutex);
-
+        V(&pbx_mutex);
         return 0;
 
     }
-    V(&pbx_mutex);
 
 }
 
@@ -160,7 +158,6 @@ int tu_extension(TU *tu){
 }
 
 int tu_pickup(TU *tu){
-
     if(tu == NULL){
         return -1;
     }
@@ -170,14 +167,11 @@ int tu_pickup(TU *tu){
             P(&tu_mutex_array[tu->extention]);
         }
         else{   //acquire both locks in order
-           if(tu->extention < (tu->ringing_tu)->extention){
-
+            if(tu->extention < (tu->ringing_tu)->extention){
                 P(&tu_mutex_array[tu->extention]);
                 P(&tu_mutex_array[(tu->ringing_tu)->extention]);
-
             }
             else{
-
                 P(&tu_mutex_array[(tu->ringing_tu)->extention]);
                 P(&tu_mutex_array[tu->extention]);
 
@@ -185,13 +179,11 @@ int tu_pickup(TU *tu){
         }
 
         if(tu->current_state == TU_ON_HOOK){
-
             tu->current_state = TU_DIAL_TONE;
             send_notification(TU_DIAL_TONE, tu->fileno, 0);
 
         }
         else if(tu->current_state == TU_RINGING){
-
             tu->current_state = TU_CONNECTED;
             tu->connected_tu = tu->ringing_tu;
             send_notification(TU_CONNECTED, tu->fileno, (tu->ringing_tu)->extention);
@@ -199,7 +191,6 @@ int tu_pickup(TU *tu){
             (tu->ringing_tu)->current_state = TU_CONNECTED;
             (tu->ringing_tu)->connected_tu = tu;
             send_notification(TU_CONNECTED, (tu->ringing_tu)->fileno, tu->extention);
-
         }
         else{
             send_notification(tu->current_state, tu->fileno, 0);
@@ -220,20 +211,22 @@ int tu_pickup(TU *tu){
 }
 
 int tu_hangup(TU *tu){
+    int mutex_flag=0;
+    int scndfd;
+
     if(tu == NULL){
         return -1;
     }
     else{
-
         //acquire lock either for one or two TUs depending on the state
         if(tu->ringing_tu == NULL){     //acquire one lock
-
             P(&tu_mutex_array[tu->extention]);
+            mutex_flag = 1;
 
         }
         else{   //acquire both locks in order
-           if(tu->extention < (tu->ringing_tu)->extention){
-
+            mutex_flag = 2;
+            if(tu->extention < (tu->ringing_tu)->extention){
                 P(&tu_mutex_array[tu->extention]);
                 P(&tu_mutex_array[(tu->ringing_tu)->extention]);
 
@@ -244,7 +237,6 @@ int tu_hangup(TU *tu){
             }
         }
         if(tu->current_state == TU_CONNECTED){
-
             tu->current_state = TU_ON_HOOK;
 
             (tu->connected_tu)->current_state = TU_DIAL_TONE;
@@ -252,8 +244,10 @@ int tu_hangup(TU *tu){
             send_notification(TU_ON_HOOK, tu->fileno, 0);
             send_notification(TU_DIAL_TONE, (tu->connected_tu)->fileno, 0);
 
+            scndfd = (tu->connected_tu)->extention;
             (tu->connected_tu)->ringing_tu = NULL;
             (tu->connected_tu)->connected_tu = NULL;
+
 
             tu->ringing_tu = NULL;
             tu->connected_tu = NULL;
@@ -268,6 +262,7 @@ int tu_hangup(TU *tu){
             send_notification(TU_ON_HOOK, tu->fileno, 0);
             send_notification(TU_ON_HOOK, (tu->ringing_tu)->fileno, 0);
 
+            scndfd = (tu->ringing_tu)->extention;
             (tu->ringing_tu)->ringing_tu = NULL;
             tu->ringing_tu = NULL;
 
@@ -281,49 +276,40 @@ int tu_hangup(TU *tu){
             send_notification(TU_ON_HOOK, tu->fileno, 0);
             send_notification(TU_DIAL_TONE, (tu->ringing_tu)->fileno, 0);
 
+            scndfd = (tu->ringing_tu)->extention;
             (tu->ringing_tu)->ringing_tu = NULL;
             tu->ringing_tu = NULL;
 
         }
         else if(tu->current_state == TU_DIAL_TONE || tu->current_state == TU_BUSY_SIGNAL || tu->current_state == TU_ERROR){
-
             tu->current_state = TU_ON_HOOK;
             send_notification(TU_ON_HOOK, tu->fileno, 0);
-
         }
         else{
-
             send_notification(tu->current_state, tu->fileno, 0);
-
         }
 
         //unlock either for one or two TUs depending on the state
-        if(tu->ringing_tu == NULL){     //give away one lock
+        if(mutex_flag == 1){     //give away one lock
             V(&tu_mutex_array[tu->extention]);
         }
-        else{   //giva away both locks in order
+        else if(mutex_flag == 2){   //giva away both locks in order
 
-            V(&tu_mutex_array[(tu->ringing_tu)->extention]);
+            V(&tu_mutex_array[scndfd]);
             V(&tu_mutex_array[tu->extention]);
         }
-
         return 0;
     }
 
 }
 
 int tu_dial(TU *tu, int ext){
-
     if(valid_extension(ext)){
-
         P(&pbx_mutex);
         if((pbx->extension_array[ext]) != NULL){
-
             //lock both TU's in order
             if(tu->extention == (pbx->extension_array[ext])->extention){   //hold one lock if both TUs refers to the same tu
-
                 P(&tu_mutex_array[tu->extention]);
-
             }
             else if(tu->extention < (pbx->extension_array[ext])->extention){
                 P(&tu_mutex_array[tu->extention]);
@@ -334,7 +320,6 @@ int tu_dial(TU *tu, int ext){
                 P(&tu_mutex_array[tu->extention]);
             }
             if(tu->current_state == TU_DIAL_TONE){
-
                 if((pbx->extension_array[ext])->current_state == TU_ON_HOOK){
 
                     tu->current_state = TU_RING_BACK;
@@ -348,7 +333,6 @@ int tu_dial(TU *tu, int ext){
 
                 }
                 else{
-
                     tu->current_state = TU_BUSY_SIGNAL;
                     send_notification(TU_BUSY_SIGNAL, tu->fileno, 0);
 
@@ -356,13 +340,11 @@ int tu_dial(TU *tu, int ext){
 
             }
             else{
-
                 send_notification(tu->current_state, tu->fileno, 0);
 
             }
             //Unlock both TU's
             if(tu->extention == (pbx->extension_array[ext])->extention){   //unlock one if both TUs refers to the same tu
-
                 V(&tu_mutex_array[tu->extention]);
 
             }
@@ -373,7 +355,6 @@ int tu_dial(TU *tu, int ext){
 
         }
         else{
-
             P(&tu_mutex_array[tu->extention]);
 
             if(tu->current_state != TU_DIAL_TONE){   //current state is anything other than TU_DIAL_TONE,

@@ -31,6 +31,14 @@ void sigchld_handler(int sig) /* SIGTERM handler */
 
 }
 
+void sigpipe_handler(int sig) /* SIGTERM handler */
+{
+
+    int old_errno = errno;
+    errno = old_errno;
+
+}
+
 int main(int argc, char* argv[]){
     // Option processing should be performed here.
     // Option '-p <port>' is required in order to specify the port number
@@ -62,13 +70,17 @@ int main(int argc, char* argv[]){
     // a SIGHUP handler, so that receipt of SIGHUP will perform a clean
     // shutdown of the server.
 
-    struct sigaction sig1;              //install SIGHUP handler
+    /*struct sigaction sig1;              //install SIGHUP handler
     sig1.sa_handler = sigchld_handler;
     sigaction(SIGHUP, &sig1, NULL);
 
     struct sigaction sig2;              //install SIGPIPE handler
-    sig2.sa_handler = SIG_IGN;
-    sigaction(SIGPIPE, &sig2, NULL);
+    sig2.sa_handler = sigpipe_handler;
+    sig2.sa_flags = 0;
+    sigaction(SIGPIPE, &sig2, NULL);*/
+
+    Signal(SIGHUP, sigchld_handler);
+    Signal(SIGPIPE, sigpipe_handler);
 
     int listenfd, *connfdp;
     socklen_t clientlen;
