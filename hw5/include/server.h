@@ -14,7 +14,10 @@
  * Definitions of the commands that can be issued by a client.
  */
 typedef enum tu_command {
-    TU_PICKUP_CMD, TU_HANGUP_CMD, TU_DIAL_CMD, TU_CHAT_CMD
+    TU_PICKUP_CMD, TU_HANGUP_CMD, TU_DIAL_CMD, TU_CHAT_CMD,
+    // Below are special values used in grading tests.
+    TU_NO_CMD = 100, TU_CONNECT_CMD = 101, TU_DISCONNECT_CMD = 102,
+    TU_AWAIT_CMD = 103, TU_DELAY_CMD = 104, TU_EOF_CMD = 105
 } TU_COMMAND;
 
 /*

@@ -19,7 +19,7 @@ TEST_SRC := $(shell find $(TSTD) -type f -name *.c)
 
 INC := -I $(INCD)
 
-CFLAGS := -Wall -Werror -Wno-unused-function -MMD
+CFLAGS := -Wall -Werror -Wno-unused-function -Wno-error=switch -MMD
 DFLAGS := -g -DDEBUG -DCOLOR
 PRINT_STAMENTS := -DERROR -DSUCCESS -DWARN -DINFO
 
@@ -29,14 +29,14 @@ LIBS := $(LIB) -lpthread
 LIBS_DB := $(LIB_DB) -lpthread
 EXCLUDES := excludes.h
 
-CFLAGS += $(STD)
+CFLAGS += $(STD) -DTEST_CONFIG_C
 
 EXEC := pbx
 TEST_EXEC := $(EXEC)_tests
 
 .PHONY: clean all setup debug
 
-all: setup $(BIND)/$(EXEC) $(BIND)/$(TEST_EXEC)
+all: setup $(BIND)/$(EXEC) $(INCD)/$(EXCLUDES) $(BIND)/$(TEST_EXEC)
 
 debug: CFLAGS += $(DFLAGS) $(PRINT_STAMENTS)
 debug: all
@@ -63,6 +63,19 @@ $(BLDD)/%.o: $(SRCD)/%.c
 
 clean:
 	rm -rf $(BLDD) $(BIND)
+
+$(INCD)/$(EXCLUDES): $(BIND)/$(EXEC)
+	rm -f $@
+	touch $@
+	if nm $(BIND)/$(EXEC) | grep INSTRUCTOR_MAIN > /dev/null; then \
+           echo "#define NO_MAIN" >> $@; \
+        fi
+	if nm $(BIND)/$(EXEC) | grep INSTRUCTOR_SERVER > /dev/null; then \
+           echo "#define NO_SERVER" >> $@; \
+        fi
+	if nm $(BIND)/$(EXEC) | grep INSTRUCTOR_PBX > /dev/null; then \
+           echo "#define NO_PBX" >> $@; \
+        fi
 
 .PRECIOUS: $(BLDD)/*.d
 -include $(BLDD)/*.d

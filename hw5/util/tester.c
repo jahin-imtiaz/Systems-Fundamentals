@@ -231,7 +231,7 @@ int main(int argc, char *argv[]) {
     socklen_t sl = sizeof(s);
     getsockname(sfd, (struct sockaddr *)&s, &sl);
     port = s.sin_port;
-    fprintf(stdout, "%s: Connected to server %s:%d\n", timestamp(), hostname, port);
+    fprintf(stdout, "%s: [%d] Connected to server %s:%d\n", timestamp(), getpid(), hostname, port);
 
     // Set up streams to the socket file descriptor.
     in = fdopen(sfd, "r");
@@ -239,6 +239,7 @@ int main(int argc, char *argv[]) {
 
     // Perform testing.
     test(in, out, cmds);
+    exit(EXIT_SUCCESS);
 }
 
 /* There isn't really a maximum message length, but this is just a test driver... */
@@ -263,17 +264,17 @@ void test(FILE *in, FILE *out, int cmds) {
 	TU_COMMAND cmd;
 	char msg[MAX_MESSAGE_LEN];
 	if(fgets(msg, MAX_MESSAGE_LEN, in) == NULL) {
-	    fprintf(stderr, "%s: EOF reading message from server\n", timestamp());
+	    fprintf(stderr, "%s: [%d] EOF reading message from server\n", timestamp(), getpid());
 	    if(resync) {
-		fprintf(stderr, "%s: Premature disconnection during resync\n", timestamp());
+		fprintf(stderr, "%s: [%d] Premature disconnection during resync\n", timestamp(), getpid());
 		exit(EXIT_FAILURE);
 	    } else {
-		fprintf(stderr, "%s: Tester terminating\n", timestamp());
-		exit(EXIT_SUCCESS);
+		fprintf(stderr, "%s: [%d] Tester terminating before reaching specified test length\n", timestamp(), getpid());
+		exit(EXIT_FAILURE);
 	    }
 	}
 	trim_eol(msg);
-	fprintf(stderr, "%s: Message from server: %s\n", timestamp(), msg);
+	fprintf(stderr, "%s: [%d] Message from server: %s\n", timestamp(), getpid(), msg);
 	new = parse_message(msg);
 	if(new == NUM_STATES) {
 	    // The message is chat.  There is no state transition, but we must be
@@ -292,25 +293,25 @@ void test(FILE *in, FILE *out, int cmds) {
 	    resync = 0;
 	} else if(1<<(new+RESYNC) & expected_states) {
 	    // OK, but set resync because messages crossed in transit.
-	    fprintf(stderr, "%s: Resync: state %s, expecting %s\n",
-		    timestamp(), tu_state_names[new], unparse_state_set(expected_states));
+	    fprintf(stderr, "%s: [%d] Resync: state %s, expecting %s\n",
+		    timestamp(), getpid(), tu_state_names[new], unparse_state_set(expected_states));
 	    resync = 1;
 	} else {
 	    // New state is not one that is expected -- testing fails.
-	    fprintf(stderr, "%s: New state %s is not in expected set %s\n",
-		    timestamp(), tu_state_names[new], unparse_state_set(expected_states));
+	    fprintf(stderr, "%s: [%d] New state %s is not in expected set %s\n",
+		    timestamp(), getpid(), tu_state_names[new], unparse_state_set(expected_states));
 	    exit(EXIT_FAILURE);
 	}
 
 	// Update current state to that specified in message
-	fprintf(stderr, "%s: Change state: %s -> %s\n",
-		timestamp(), tu_state_names[current_state], tu_state_names[new]);
+	fprintf(stderr, "%s: [%d] Change state: %s -> %s\n",
+		timestamp(), getpid(), tu_state_names[current_state], tu_state_names[new]);
 	current_state = new;
 
 	// Determine action to be performed.
 	if(resync) {
 	    //   If resyncing, then no new action is performed.
-	    fprintf(stderr, "%s: Resync\n", timestamp());
+	    fprintf(stderr, "%s: [%d] Resync\n", timestamp(), getpid());
 	} else {
 	    // Delay until a non-delay command is chosen.
 	    int delayed = 0;
@@ -333,12 +334,12 @@ void test(FILE *in, FILE *out, int cmds) {
 	    if(cmd == TU_DIAL_CMD) {
 		// Choose an extension at random from the valid range.
 		int ext = min_ext + random() % (max_ext - min_ext + 1);
-		fprintf(stderr, "%s: Sending command (%d): %s %d\n",
-			timestamp(), n, tu_command_names[cmd], ext);
+		fprintf(stderr, "%s: [%d] Sending command (%d): %s %d\n",
+			timestamp(), getpid(), n, tu_command_names[cmd], ext);
 		fprintf(out, "%s %d%s", tu_command_names[cmd], ext, EOL);
 	    } else {
-		fprintf(stderr, "%s: Sending command (%d): %s\n",
-			timestamp(), n, tu_command_names[cmd]);
+		fprintf(stderr, "%s: [%d] Sending command (%d): %s\n",
+			timestamp(), getpid(), n, tu_command_names[cmd]);
 		fprintf(out, "%s%s", tu_command_names[cmd], EOL);
 	    }
 	    fflush(out);
@@ -353,7 +354,7 @@ void test(FILE *in, FILE *out, int cmds) {
 	    expected_states = next_states[new][cmd];
 	    last_command = cmd;
 	}
-	fprintf(stderr, "%s: Expecting: %s\n", timestamp(), unparse_state_set(expected_states));
+	fprintf(stderr, "%s: [%d] Expecting: %s\n", timestamp(), getpid(), unparse_state_set(expected_states));
     }
 }
 
@@ -382,8 +383,8 @@ static TU_STATE parse_message(char *msg) {
     }
     if(strstr(msg, "CHAT") == msg)
 	return NUM_STATES;
-    fprintf(stderr, "%s: Unrecognized message: %s\n", timestamp(), msg);
-    abort();
+    fprintf(stderr, "%s: [%d] Unrecognized message: %s\n", timestamp(), getpid(), msg);
+    exit(EXIT_FAILURE);
 }
 
 /*
