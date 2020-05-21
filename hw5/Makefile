@@ -29,7 +29,7 @@ LIBS := $(LIB) -lpthread
 LIBS_DB := $(LIB_DB) -lpthread
 EXCLUDES := excludes.h
 
-CFLAGS += $(STD) -DTEST_CONFIG_C
+CFLAGS += $(STD) -DTEST_CONFIG_A
 
 EXEC := pbx
 TEST_EXEC := $(EXEC)_tests
